@@ -1,10 +1,10 @@
 package kr.co.seoulit.his.inpatientservice.bed.service;
 
-import kr.co.seoulit.his.inpatientservice.bed.dto.BedResponse;
-
-import java.util.List;
+import kr.co.seoulit.his.inpatientservice.bed.dto.BedListResponse;
+import kr.co.seoulit.his.inpatientservice.bed.entity.BedStatus;
+import org.springframework.data.domain.Pageable;
 
 public interface BedService {
 
-    List<BedResponse> getBeds();
+    BedListResponse getBeds(BedStatus status, Pageable pageable);
 }
