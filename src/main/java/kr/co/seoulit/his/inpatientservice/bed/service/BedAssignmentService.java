@@ -14,4 +14,6 @@ public interface BedAssignmentService {
     BedAssignmentResponse createBedAssignment(BedAssignmentRequest request);
 
     BedAssignmentResponse updateBedAssignment(Long assignmentId, BedAssignmentRequest request);
+
+    BedAssignmentResponse releaseBedAssignment(Long assignmentId);
 }

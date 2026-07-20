@@ -52,4 +52,9 @@ public class BedAssignment {
         this.releasedAt = releasedAt;
         this.updatedAt = LocalDateTime.now();
     }
+
+    public void release(LocalDateTime releasedAt) {
+        this.releasedAt = releasedAt;
+        this.updatedAt = LocalDateTime.now();
+    }
 }
