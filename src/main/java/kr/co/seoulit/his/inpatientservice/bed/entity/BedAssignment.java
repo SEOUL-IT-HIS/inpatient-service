@@ -5,6 +5,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.SequenceGenerator;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -23,7 +24,8 @@ import java.time.LocalDateTime;
 public class BedAssignment {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "bed_assignment_seq")
+    @SequenceGenerator(name = "bed_assignment_seq", sequenceName = "BED_ASSIGNMENT_SEQ", allocationSize = 1)
     @Column(name = "ASSIGNMENT_ID")
     private Long assignmentId;
 
