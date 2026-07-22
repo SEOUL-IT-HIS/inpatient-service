@@ -5,6 +5,7 @@ import kr.co.seoulit.his.inpatientservice.bed.dto.BedAssignmentDTO;
 import kr.co.seoulit.his.inpatientservice.bed.entity.BedAssignmentEntity;
 import kr.co.seoulit.his.inpatientservice.bed.mapper.BedAssignmentMapper;
 import kr.co.seoulit.his.inpatientservice.bed.repository.BedAssignmentRepository;
+import kr.co.seoulit.his.inpatientservice.bed.repository.BedRepository;
 import kr.co.seoulit.his.inpatientservice.common.exception.BusinessException;
 
 import kr.co.seoulit.his.inpatientservice.common.exception.ErrorCode;
@@ -17,11 +18,14 @@ import java.util.List;
 public class BedAssignmentServiceImpl implements BedAssignmentService {
     private final BedAssignmentRepository bedAssignmentRepository;
     private final BedAssignmentMapper bedAssignmentMapper;
+    private final BedRepository bedRepository;
 
     public BedAssignmentServiceImpl(BedAssignmentRepository bedAssignmentRepository,
-            BedAssignmentMapper bedAssignmentMapper) {
+            BedAssignmentMapper bedAssignmentMapper,
+            BedRepository bedRepository) {
         this.bedAssignmentRepository = bedAssignmentRepository;
         this.bedAssignmentMapper = bedAssignmentMapper;
+        this.bedRepository = bedRepository;
     }
 
     @Override
@@ -49,7 +53,6 @@ public class BedAssignmentServiceImpl implements BedAssignmentService {
         BedAssignmentEntity entity = bedAssignmentRepository.findById(assignmentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BED_ASSIGNMENT_NOT_FOUND));
 
-        entity.setAssignmentId(requestDto.getAssignmentId());
         entity.setBedId(requestDto.getBedId());
         entity.setAssignedAt(requestDto.getAssignedAt());
         entity.setReleasedAt(requestDto.getReleasedAt());
@@ -63,6 +66,15 @@ public class BedAssignmentServiceImpl implements BedAssignmentService {
         BedAssignmentEntity entity = bedAssignmentRepository.findById(assignmentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BED_ASSIGNMENT_NOT_FOUND));
         bedAssignmentRepository.delete(entity);
+    }
+
+    private void validateBedAvailable(String bedId) {
+    }
+
+    private void markBedOccupied(String bedId) {
+    }
+
+    private void markBedEmpty(String bedId) {
     }
 
 }

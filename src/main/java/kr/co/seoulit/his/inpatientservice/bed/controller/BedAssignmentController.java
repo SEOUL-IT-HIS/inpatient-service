@@ -2,6 +2,7 @@ package kr.co.seoulit.his.inpatientservice.bed.controller;
 
 import kr.co.seoulit.his.inpatientservice.bed.dto.BedAssignmentDTO;
 import kr.co.seoulit.his.inpatientservice.bed.service.BedAssignmentService;
+import kr.co.seoulit.his.inpatientservice.common.response.ApiResponse;
 
 import org.springframework.web.bind.annotation.*;
 
@@ -17,27 +18,28 @@ public class BedAssignmentController {
     }
 
     @GetMapping
-    public List<BedAssignmentDTO> getBedAssignments() {
-        return bedAssignmentService.getBedAssignments();
+    public ApiResponse<List<BedAssignmentDTO>> getBedAssignments() {
+        return ApiResponse.success(bedAssignmentService.getBedAssignments());
     }
 
     @GetMapping("/{assignmentId}")
-    public BedAssignmentDTO getBedAssignment(@PathVariable String assignmentId) {
-        return bedAssignmentService.getBedAssignment(assignmentId);
+    public ApiResponse<BedAssignmentDTO> getBedAssignment(@PathVariable String assignmentId) {
+        return ApiResponse.success(bedAssignmentService.getBedAssignment(assignmentId));
     }
 
     @PostMapping
-    public BedAssignmentDTO createBedAssignment(@RequestBody BedAssignmentDTO requestDto) {
-        return bedAssignmentService.createBedAssignment(requestDto);
+    public ApiResponse<BedAssignmentDTO> createBedAssignment(@RequestBody BedAssignmentDTO requestDto) {
+        return ApiResponse.success(bedAssignmentService.createBedAssignment(requestDto));
     }
 
     @PutMapping("/{assignmentId}")
-    public BedAssignmentDTO updateBedAssignment(@PathVariable String assignmentId, @RequestBody BedAssignmentDTO requestDto) {
-        return bedAssignmentService.updateBedAssignment(assignmentId, requestDto);
+    public ApiResponse<BedAssignmentDTO> updateBedAssignment(@PathVariable String assignmentId, @RequestBody BedAssignmentDTO requestDto) {
+        return ApiResponse.success(bedAssignmentService.updateBedAssignment(assignmentId, requestDto));
     }
 
     @DeleteMapping("/{assignmentId}")
-    public void deleteBedAssignment(@PathVariable String assignmentId) {
+    public ApiResponse<Void> deleteBedAssignment(@PathVariable String assignmentId) {
         bedAssignmentService.deleteBedAssignment(assignmentId);
+        return ApiResponse.success(null);
     }
 }
