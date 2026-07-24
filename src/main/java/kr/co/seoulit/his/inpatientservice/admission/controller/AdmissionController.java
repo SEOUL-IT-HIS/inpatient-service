@@ -16,6 +16,11 @@ public class AdmissionController {
         this.admissionService = admissionService;
     }
 
+    @PostMapping("/reception")
+    public ApiResponse<AdmissionDTO> receiveAdmission(@RequestBody AdmissionDTO requestDto){
+        return ApiResponse.success(admissionService.receiveAdmission(requestDto));
+    }
+
     @GetMapping
     public ApiResponse<List<AdmissionDTO>> getAdmissions() {
         return ApiResponse.success(admissionService.getAdmissions());
@@ -29,6 +34,12 @@ public class AdmissionController {
     @PostMapping
     public ApiResponse<AdmissionDTO> createAdmission(@RequestBody AdmissionDTO requestDto) {
         return ApiResponse.success(admissionService.createAdmission(requestDto));
+    }
+    @PatchMapping("/{admissionId}/status")
+    public ApiResponse<AdmissionDTO> changeStatus(@PathVariable String admissionId,
+                                                  @RequestBody AdmissionDTO requestDto){
+        return ApiResponse.success(admissionService.changeStatus(admissionId,requestDto.getStatus()));
+
     }
 
     @PutMapping("/{admissionId}")

@@ -15,9 +15,15 @@ public class AdmissionServiceImpl implements AdmissionService {
     private final AdmissionRepository admissionRepository;
     private final AdmissionMapper admissionMapper;
 
+
     public AdmissionServiceImpl(AdmissionRepository admissionRepository, AdmissionMapper admissionMapper) {
         this.admissionRepository = admissionRepository;
         this.admissionMapper = admissionMapper;
+    }
+    @Override
+    public AdmissionDTO receiveAdmission(AdmissionDTO requestDto){
+        AdmissionEntity entity = admissionMapper.toEntity(requestDto);
+        return admissionMapper.toDto(admissionRepository.save(entity));
     }
 
     @Override
@@ -50,5 +56,14 @@ public class AdmissionServiceImpl implements AdmissionService {
         entity.setStatus(requestDto.getStatus());
         return admissionMapper.toDto(admissionRepository.save(entity));
     }
+    @Override
+    public AdmissionDTO changeStatus(String admissionId, String status){
+        AdmissionEntity entity = admissionRepository.findById(admissionId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.BED_ASSIGNMENT_NOT_FOUND));
+
+        entity.setStatus(status);
+        return admissionMapper.toDto(admissionRepository.save(entity));
+    }
+
 
 }
