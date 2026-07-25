@@ -23,7 +23,7 @@ public class BedAssignmentController {
     }
 
     @GetMapping("/{assignmentId}")
-    public ApiResponse<BedAssignmentDTO> getBedAssignment(@PathVariable String assignmentId) {
+    public ApiResponse<BedAssignmentDTO> getBedAssignment(@PathVariable Long assignmentId) {
         return ApiResponse.success(bedAssignmentService.getBedAssignment(assignmentId));
     }
 
@@ -33,12 +33,12 @@ public class BedAssignmentController {
     }
 
     @PutMapping("/{assignmentId}")
-    public ApiResponse<BedAssignmentDTO> updateBedAssignment(@PathVariable String assignmentId, @RequestBody BedAssignmentDTO requestDto) {
+    public ApiResponse<BedAssignmentDTO> updateBedAssignment(@PathVariable Long assignmentId, @RequestBody BedAssignmentDTO requestDto) {
         return ApiResponse.success(bedAssignmentService.updateBedAssignment(assignmentId, requestDto));
     }
 
     @DeleteMapping("/{assignmentId}")
-    public ApiResponse<Void> deleteBedAssignment(@PathVariable String assignmentId) {
+    public ApiResponse<Void> deleteBedAssignment(@PathVariable Long assignmentId) {
         bedAssignmentService.deleteBedAssignment(assignmentId);
         return ApiResponse.success(null);
     }

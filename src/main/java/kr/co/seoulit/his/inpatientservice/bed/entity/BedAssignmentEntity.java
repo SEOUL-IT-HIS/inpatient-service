@@ -1,8 +1,6 @@
 package kr.co.seoulit.his.inpatientservice.bed.entity;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
@@ -17,7 +15,9 @@ import java.time.LocalDateTime;
 public class BedAssignmentEntity {
 
     @Id
-    private String assignmentId;
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "bed_assignment_seq")
+    @SequenceGenerator(name = "bed_assignment_seq", sequenceName = "bed_assignment_seq", allocationSize = 1)
+    private Long assignmentId;
 
     private String bedId;
     private String admissionId;
@@ -25,4 +25,14 @@ public class BedAssignmentEntity {
     private LocalDateTime releasedAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    @PrePersist
+    public void prePersist() {
+        this.createdAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    public void preUpdate() {
+        this.updatedAt = LocalDateTime.now();
+    }
 }

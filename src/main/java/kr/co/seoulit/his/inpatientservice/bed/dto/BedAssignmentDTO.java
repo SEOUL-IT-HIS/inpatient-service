@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Builder
 public class BedAssignmentDTO {
-    private String assignmentId;
+    private Long assignmentId;
     private String bedId;
     private String admissionId;
     private LocalDateTime assignedAt;

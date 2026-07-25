@@ -10,9 +10,9 @@ public interface BedAssignmentService {
 
     BedAssignmentDTO createBedAssignment(BedAssignmentDTO requestDto);
 
-    BedAssignmentDTO getBedAssignment(String assignmentId);
+    BedAssignmentDTO getBedAssignment(Long assignmentId);
 
-    BedAssignmentDTO updateBedAssignment(String assignmentId, BedAssignmentDTO requestDto);
+    BedAssignmentDTO updateBedAssignment(Long assignmentId, BedAssignmentDTO requestDto);
 
-    void deleteBedAssignment(String assignmentId);
+    void deleteBedAssignment(Long assignmentId);
 }

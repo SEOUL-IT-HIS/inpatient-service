@@ -36,7 +36,7 @@ public class BedAssignmentServiceImpl implements BedAssignmentService {
     }
 
     @Override
-    public BedAssignmentDTO getBedAssignment(String assignmentId) {
+    public BedAssignmentDTO getBedAssignment(Long assignmentId) {
         BedAssignmentEntity entity = bedAssignmentRepository.findById(assignmentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BED_ASSIGNMENT_NOT_FOUND));
         return bedAssignmentMapper.toDto(entity);
@@ -44,12 +44,13 @@ public class BedAssignmentServiceImpl implements BedAssignmentService {
 
     @Override
     public BedAssignmentDTO createBedAssignment(BedAssignmentDTO requestDto) {
+        validateBedAvailable(requestDto.getBedId());
         BedAssignmentEntity entity = bedAssignmentMapper.toEntity(requestDto);
         return bedAssignmentMapper.toDto(bedAssignmentRepository.save(entity));
     }
 
     @Override
-    public BedAssignmentDTO updateBedAssignment(String assignmentId, BedAssignmentDTO requestDto) {
+    public BedAssignmentDTO updateBedAssignment(Long assignmentId, BedAssignmentDTO requestDto) {
         BedAssignmentEntity entity = bedAssignmentRepository.findById(assignmentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BED_ASSIGNMENT_NOT_FOUND));
 
@@ -62,13 +63,18 @@ public class BedAssignmentServiceImpl implements BedAssignmentService {
     }
 
     @Override
-    public void deleteBedAssignment(String assignmentId) {
+    public void deleteBedAssignment(Long assignmentId) {
         BedAssignmentEntity entity = bedAssignmentRepository.findById(assignmentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BED_ASSIGNMENT_NOT_FOUND));
         bedAssignmentRepository.delete(entity);
     }
 
     private void validateBedAvailable(String bedId) {
+        BedAssignmentEntity existingAssignment = bedAssignmentRepository.findByBedIdAndReleasedAtIsNull(bedId);
+        if (existingAssignment != null) {
+            throw new BusinessException(ErrorCode.BED_ALREADY_OCCUPIED);
+        }
+        return;
     }
 
     private void markBedOccupied(String bedId) {
