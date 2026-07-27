@@ -2,5 +2,7 @@ package kr.co.seoulit.his.inpatientservice.bed.entity;
 
 public enum BedStatus {
     EMPTY,
-    OCCUPIED
+    OCCUPIED,
+    RESERVED,
+    MAINTENANCE
 }
