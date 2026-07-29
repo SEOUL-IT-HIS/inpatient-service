@@ -1,8 +1,10 @@
 package kr.co.seoulit.his.inpatientservice.bed.service;
 
 import jakarta.transaction.Transactional;
+import kr.co.seoulit.his.inpatientservice.bed.entity.BedStatus;
 import kr.co.seoulit.his.inpatientservice.bed.dto.BedAssignmentDTO;
 import kr.co.seoulit.his.inpatientservice.bed.entity.BedAssignmentEntity;
+import kr.co.seoulit.his.inpatientservice.bed.entity.BedEntity;
 import kr.co.seoulit.his.inpatientservice.bed.mapper.BedAssignmentMapper;
 import kr.co.seoulit.his.inpatientservice.bed.repository.BedAssignmentRepository;
 import kr.co.seoulit.his.inpatientservice.bed.repository.BedRepository;
@@ -42,13 +44,17 @@ public class BedAssignmentServiceImpl implements BedAssignmentService {
         return bedAssignmentMapper.toDto(entity);
     }
 
+    @Transactional
     @Override
     public BedAssignmentDTO createBedAssignment(BedAssignmentDTO requestDto) {
         validateBedAvailable(requestDto.getBedId());
         BedAssignmentEntity entity = bedAssignmentMapper.toEntity(requestDto);
-        return bedAssignmentMapper.toDto(bedAssignmentRepository.save(entity));
+        BedAssignmentEntity saved = bedAssignmentRepository.save(entity);
+        markBedOccupied(saved.getBedId());
+        return bedAssignmentMapper.toDto(saved);
     }
 
+    @Transactional
     @Override
     public BedAssignmentDTO updateBedAssignment(Long assignmentId, BedAssignmentDTO requestDto) {
         BedAssignmentEntity entity = bedAssignmentRepository.findById(assignmentId)
@@ -58,15 +64,22 @@ public class BedAssignmentServiceImpl implements BedAssignmentService {
         entity.setAssignedAt(requestDto.getAssignedAt());
         entity.setReleasedAt(requestDto.getReleasedAt());
 
-        return bedAssignmentMapper.toDto(bedAssignmentRepository.save(entity));
-
+        BedAssignmentEntity updated = bedAssignmentRepository.save(entity);
+        if (updated.getReleasedAt() != null) {
+            markBedEmpty(updated.getBedId());
+        }
+        return bedAssignmentMapper.toDto(updated);
     }
 
+    @Transactional
     @Override
     public void deleteBedAssignment(Long assignmentId) {
         BedAssignmentEntity entity = bedAssignmentRepository.findById(assignmentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BED_ASSIGNMENT_NOT_FOUND));
         bedAssignmentRepository.delete(entity);
+        if (entity.getReleasedAt() == null) {
+            markBedEmpty(entity.getBedId());
+        }
     }
 
     private void validateBedAvailable(String bedId) {
@@ -78,9 +91,17 @@ public class BedAssignmentServiceImpl implements BedAssignmentService {
     }
 
     private void markBedOccupied(String bedId) {
+        BedEntity entity = bedRepository.findById(bedId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.BED_NOT_FOUND));
+        entity.setBedStatus(BedStatus.OCCUPIED);
+        bedRepository.save(entity);
     }
 
     private void markBedEmpty(String bedId) {
+        BedEntity entity = bedRepository.findById(bedId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.BED_NOT_FOUND));
+        entity.setBedStatus(BedStatus.EMPTY);
+        bedRepository.save(entity);
     }
 
 }
