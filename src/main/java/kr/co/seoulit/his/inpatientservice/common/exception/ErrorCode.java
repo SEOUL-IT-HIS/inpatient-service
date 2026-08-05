@@ -11,7 +11,8 @@ public enum ErrorCode {
     BED_NOT_AVAILABLE("Bed is not available", HttpStatus.CONFLICT),
     BED_ALREADY_OCCUPIED("Bed is already occupied", HttpStatus.CONFLICT),
     BED_NOT_FOUND("Bed not found", HttpStatus.NOT_FOUND),
-    BED_RESERVATION_NOT_FOUND("Bed reservation not found", HttpStatus.NOT_FOUND);
+    BED_RESERVATION_NOT_FOUND("Bed reservation not found", HttpStatus.NOT_FOUND),
+    BED_RESERVATION_ALREADY_ACTIVE("Bed already has an active reservation", HttpStatus.CONFLICT);
 
     private final String message;
     private final HttpStatus status;

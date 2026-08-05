@@ -22,9 +22,12 @@ public class BedReservationEntity {
     private String patientId;
     private LocalDateTime reserveAt;
     private LocalDateTime expectedAdmissionAt;
-    private String reservationStatusCd;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private BedReservationStatus reservationStatusCd;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
     @PrePersist
     public void prePersist() {
         this.createdAt = LocalDateTime.now();
