@@ -1,6 +1,7 @@
 package kr.co.seoulit.his.inpatientservice.bed.controller;
 
 import kr.co.seoulit.his.inpatientservice.bed.dto.BedReservationDTO;
+import kr.co.seoulit.his.inpatientservice.bed.dto.BedReservationScheduleRequest;
 import kr.co.seoulit.his.inpatientservice.bed.service.BedReservationService;
 import kr.co.seoulit.his.inpatientservice.common.response.ApiResponse;
 import org.springframework.web.bind.annotation.*;
@@ -35,6 +36,13 @@ public class BedReservationController {
     public ApiResponse<BedReservationDTO> updateBedReservation(@PathVariable Long bedReservationId,
             @RequestBody BedReservationDTO requestDto) {
         return ApiResponse.success(bedReservationService.updateBedReservation(bedReservationId, requestDto));
+    }
+
+    @PatchMapping("/{bedReservationId}")
+    public ApiResponse<BedReservationDTO> updateBedReservationSchedule(
+            @PathVariable Long bedReservationId,
+            @RequestBody BedReservationScheduleRequest requestDto) {
+        return ApiResponse.success(bedReservationService.updateBedReservationSchedule(bedReservationId, requestDto));
     }
 
     @DeleteMapping("/{bedReservationId}")

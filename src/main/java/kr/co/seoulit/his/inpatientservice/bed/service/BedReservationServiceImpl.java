@@ -2,12 +2,15 @@ package kr.co.seoulit.his.inpatientservice.bed.service;
 
 import jakarta.transaction.Transactional;
 import kr.co.seoulit.his.inpatientservice.bed.dto.BedReservationDTO;
+import kr.co.seoulit.his.inpatientservice.bed.dto.BedReservationScheduleRequest;
 import kr.co.seoulit.his.inpatientservice.bed.entity.BedEntity;
 import kr.co.seoulit.his.inpatientservice.bed.entity.BedReservationEntity;
+import kr.co.seoulit.his.inpatientservice.bed.entity.BedReservationHistoryEntity;
 import kr.co.seoulit.his.inpatientservice.bed.entity.BedReservationStatus;
 import kr.co.seoulit.his.inpatientservice.bed.entity.BedStatus;
 import kr.co.seoulit.his.inpatientservice.bed.mapper.BedReservationMapper;
 import kr.co.seoulit.his.inpatientservice.bed.repository.BedRepository;
+import kr.co.seoulit.his.inpatientservice.bed.repository.BedReservationHistoryRepository;
 import kr.co.seoulit.his.inpatientservice.bed.repository.BedReservationRepository;
 import kr.co.seoulit.his.inpatientservice.common.exception.BusinessException;
 import kr.co.seoulit.his.inpatientservice.common.exception.ErrorCode;
@@ -19,14 +22,20 @@ import java.util.List;
 public class BedReservationServiceImpl implements BedReservationService {
     // "예약(BedReservation)" 테이블을 다루는 repository — BED_RESERVATION 저장/조회 담당
     private final BedReservationRepository bedReservationRepository;
+    // "예약(BedReservation) 이력" 테이블을 다루는 repository — BED_RESERVATION_HISTORY 저장/조회
+    // 담당
+    private final BedReservationHistoryRepository bedReservationHistoryRepository;
+
     // Entity <-> DTO 변환 도구
     private final BedReservationMapper bedReservationMapper;
     // "병상(Bed)" 테이블을 다루는 repository — 예약이 아니라 "병상 자체의 상태"를 바꿀 때 씀
     private final BedRepository bedRepository;
 
     public BedReservationServiceImpl(BedReservationRepository bedReservationRepository,
-            BedReservationMapper bedReservationMapper, BedRepository bedRepository) {
+            BedReservationMapper bedReservationMapper, BedRepository bedRepository,
+            BedReservationHistoryRepository bedReservationHistoryRepository) {
         this.bedReservationRepository = bedReservationRepository;
+        this.bedReservationHistoryRepository = bedReservationHistoryRepository;
         this.bedReservationMapper = bedReservationMapper;
         this.bedRepository = bedRepository;
     }
@@ -60,8 +69,11 @@ public class BedReservationServiceImpl implements BedReservationService {
         BedReservationEntity entity = bedReservationRepository.findById(bedReservationId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BED_RESERVATION_NOT_FOUND));
 
-        // 2) 요청받은 값으로 필드 덮어쓰기 (메모리 상에서만, 아직 DB 반영 전)
+        // 1.5) 기존 상태값 저장 (이전 상태값이 RELEASED가 아니었는데, 새 상태값이 RELEASED로 바뀌면 병상을 다시 EMPTY로
+        // 되돌려야 함)
+        BedReservationStatus previousStatus = entity.getReservationStatusCd();
 
+        // 2) 요청받은 값으로 필드 덮어쓰기 (메모리 상에서만, 아직 DB 반영 전)
         if (!entity.getBedId().equals(requestDto.getBedId())) {
             throw new BusinessException(ErrorCode.BED_NOT_AVAILABLE);
         }
@@ -72,6 +84,13 @@ public class BedReservationServiceImpl implements BedReservationService {
         entity.setExpectedAdmissionAt(requestDto.getExpectedAdmissionAt());
         // 3) DB에 저장 (사실상 UPDATE 문이 나감 — id가 이미 있는 row라서)
         BedReservationEntity updated = bedReservationRepository.save(entity);
+        // 3.5) 상태값 변경 이력 저장 (이전 상태값, 새 상태값)
+        BedReservationHistoryEntity history = BedReservationHistoryEntity.builder()
+                .bedReservationId(updated.getBedReservationId())
+                .previousStatusCd(previousStatus)
+                .newStatusCd(updated.getReservationStatusCd())
+                .build();
+        bedReservationHistoryRepository.save(history);
 
         // 4) 상태값이 "RELEASED"(취소/해제)면 그 병상을 다시 EMPTY로 되돌림
         // ⚠ 이 취소 로직도 사실 "수정" 과정에서 나오는 거라 update 메서드에 있는 게 맞음
@@ -104,6 +123,22 @@ public class BedReservationServiceImpl implements BedReservationService {
         BedReservationEntity saved = bedReservationRepository.save(entity);
         markBedReserved(saved.getBedId());
         return bedReservationMapper.toDto(saved);
+    }
+
+    // [수정] 예약 일정만 바꾸기 = BedAssignmentServiceImpl.updateBedAssignmentSchedule와 동일한
+    // 순서
+    // 1) id로 기존 예약 찾기 → 2) 일정 필드만 덮어쓰기 → 3) 저장 → 4) DTO로 변환 후 반환
+    @Transactional
+    @Override
+    public BedReservationDTO updateBedReservationSchedule(Long bedReservationId,
+            BedReservationScheduleRequest requestDto) {
+        BedReservationEntity entity = bedReservationRepository.findById(bedReservationId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.BED_RESERVATION_NOT_FOUND));
+        entity.setReserveAt(requestDto.getReserveAt());
+        entity.setExpectedAdmissionAt(requestDto.getExpectedAdmissionAt());
+        bedReservationRepository.save(entity);
+        return bedReservationMapper.toDto(entity);
+
     }
 
     // [삭제] 예약 레코드를 지우고, 아직 해제(RELEASED)되지 않은 예약이었다면 병상도 다시 EMPTY로 되돌림

@@ -1,6 +1,7 @@
 package kr.co.seoulit.his.inpatientservice.bed.service;
 
 import kr.co.seoulit.his.inpatientservice.bed.dto.BedReservationDTO;
+import kr.co.seoulit.his.inpatientservice.bed.dto.BedReservationScheduleRequest;
 
 import java.util.List;
 
@@ -17,4 +18,6 @@ public interface BedReservationService {
 
     /** 이 병상에 아직 끝나지 않은(REQUESTED/RESERVED) 예약이 있는지 — 배정 쪽에서 "예약된 병상 가로채기" 방지용으로도 씀 */
     boolean hasActiveReservation(String bedId);
+
+    BedReservationDTO updateBedReservationSchedule(Long bedReservationId, BedReservationScheduleRequest requestDto);
 }
