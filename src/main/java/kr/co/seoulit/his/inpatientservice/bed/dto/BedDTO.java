@@ -10,6 +10,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Builder
 public class BedDTO {
+    private String patientId; // 병상이 비어있으면 null
     private String bedId;
     private String roomNo;
     private String bedNo;
