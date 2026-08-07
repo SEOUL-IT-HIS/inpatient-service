@@ -4,6 +4,8 @@ import lombok.*;
 
 import java.time.LocalDateTime;
 
+import kr.co.seoulit.his.inpatientservice.bed.entity.BedReservationStatus;
+
 @Getter
 @Setter
 @NoArgsConstructor
@@ -15,7 +17,7 @@ public class BedReservationDTO {
     private String patientId;
     private LocalDateTime reserveAt;
     private LocalDateTime expectedAdmissionAt;
-    private String reservationStatusCd;
+    private BedReservationStatus reservationStatusCd;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }
