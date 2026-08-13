@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/bedreservation")
+@RequestMapping("/api/inpatient/bedreservation")
 public class BedReservationController {
     private final BedReservationService bedReservationService;
 

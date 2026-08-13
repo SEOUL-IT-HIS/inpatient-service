@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/bed")
+@RequestMapping("/api/inpatient/bed")
 public class BedController {
 
     private final BedService bedService;

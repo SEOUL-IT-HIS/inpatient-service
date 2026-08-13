@@ -14,6 +14,7 @@ public class BedDTO {
     private String roomNo;
     private String bedNo;
     private String bedStatus;
+    private String patientId;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 

@@ -9,7 +9,7 @@ import java.util.List;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/vitalsign")
+@RequestMapping("/api/inpatient/nursingrecord/vitalsign")
 public class VitalSignController {
     private final VitalSignService vitalSignService;
 

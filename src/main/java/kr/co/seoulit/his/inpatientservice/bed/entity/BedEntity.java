@@ -27,6 +27,8 @@ public class BedEntity {
     @Column(nullable = false)
     private BedStatus bedStatus;
 
+    private String patientId;
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }
