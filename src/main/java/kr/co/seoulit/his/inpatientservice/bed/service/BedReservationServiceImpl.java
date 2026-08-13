@@ -121,7 +121,7 @@ public class BedReservationServiceImpl implements BedReservationService {
         BedReservationEntity entity = bedReservationMapper.toEntity(requestDto);
         entity.setReservationStatusCd(BedReservationStatus.REQUESTED);
         BedReservationEntity saved = bedReservationRepository.save(entity);
-        markBedReserved(saved.getBedId());
+        markBedReserved(saved.getBedId(), saved.getPatientId());
         return bedReservationMapper.toDto(saved);
     }
 
@@ -153,22 +153,24 @@ public class BedReservationServiceImpl implements BedReservationService {
         }
     }
 
-    // [병상 상태 변경 전용] bedId로 병상을 찾아서 RESERVED로 바꿈 → createBedReservation에서 사용
-    private void markBedReserved(String bedId) {
+    // [병상 상태 변경 전용] bedId로 병상을 찾아서 RESERVED로 바꾸고 patientId를 채움 → createBedReservation에서 사용
+    private void markBedReserved(String bedId, String patientId) {
         BedEntity entity = bedRepository.findById(bedId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BED_NOT_FOUND));
         entity.setBedStatus(BedStatus.RESERVED);
+        entity.setPatientId(patientId);
         bedRepository.save(entity);
     }
 
     //
     //
-    // [병상 상태 변경 전용] bedId로 병상을 찾아서 EMPTY로 바꿈 → updateBedReservation,
+    // [병상 상태 변경 전용] bedId로 병상을 찾아서 EMPTY로 바꾸고 patientId를 지움 → updateBedReservation,
     // deleteBedReservation에서 사용
     private void markBedEmpty(String bedId) {
         BedEntity entity = bedRepository.findById(bedId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BED_NOT_FOUND));
         entity.setBedStatus(BedStatus.EMPTY);
+        entity.setPatientId(null);
         bedRepository.save(entity);
     }
 

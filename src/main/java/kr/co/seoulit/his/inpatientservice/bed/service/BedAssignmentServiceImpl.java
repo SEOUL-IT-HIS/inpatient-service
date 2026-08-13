@@ -1,6 +1,8 @@
 package kr.co.seoulit.his.inpatientservice.bed.service;
 
 import jakarta.transaction.Transactional;
+import kr.co.seoulit.his.inpatientservice.admission.entity.AdmissionEntity;
+import kr.co.seoulit.his.inpatientservice.admission.repository.AdmissionRepository;
 import kr.co.seoulit.his.inpatientservice.bed.entity.BedStatus;
 import kr.co.seoulit.his.inpatientservice.bed.dto.BedAssignmentDTO;
 import kr.co.seoulit.his.inpatientservice.bed.entity.BedAssignmentEntity;
@@ -27,14 +29,19 @@ public class BedAssignmentServiceImpl implements BedAssignmentService {
 
     private final BedReservationService bedReservationService;
 
-    // 생성자 — 스프링이 위 3개(repository 2개 + mapper 1개)를 자동으로 넣어줌(의존성 주입)
+    // "입원(Admission)" 테이블을 다루는 repository — admissionId로 patientId를 찾을 때 씀
+    private final AdmissionRepository admissionRepository;
+
+    // 생성자 — 스프링이 위 4개(repository 3개 + mapper 1개)를 자동으로 넣어줌(의존성 주입)
     public BedAssignmentServiceImpl(BedAssignmentRepository bedAssignmentRepository,
             BedAssignmentMapper bedAssignmentMapper,
-            BedRepository bedRepository, BedReservationService bedReservationService) {
+            BedRepository bedRepository, BedReservationService bedReservationService,
+            AdmissionRepository admissionRepository) {
         this.bedAssignmentRepository = bedAssignmentRepository;
         this.bedAssignmentMapper = bedAssignmentMapper;
         this.bedRepository = bedRepository;
         this.bedReservationService = bedReservationService;
+        this.admissionRepository = admissionRepository;
 
     }
 
@@ -66,9 +73,12 @@ public class BedAssignmentServiceImpl implements BedAssignmentService {
         BedAssignmentEntity entity = bedAssignmentMapper.toEntity(requestDto);
         // 3) 배정 Entity를 DB에 저장 (BED_ASSIGNMENT 테이블에 INSERT)
         BedAssignmentEntity saved = bedAssignmentRepository.save(entity);
-        // 4) 배정이 생겼으니, 그 병상(BED 테이블)의 상태를 OCCUPIED(사용중)로 바꿈
+        // 4) 배정이 생겼으니, 그 병상(BED 테이블)의 상태를 OCCUPIED(사용중)로 바꾸고
+        // admissionId로 입원 정보를 찾아 그 환자의 patientId도 병상에 채워 넣음
         // → "배정 테이블"과 "병상 테이블"은 다른 테이블이라 따로 업데이트해줘야 함
-        markBedOccupied(saved.getBedId());
+        AdmissionEntity admission = admissionRepository.findById(saved.getAdmissionId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.ADMISSION_NOT_FOUND));
+        markBedOccupied(saved.getBedId(), admission.getPatientId());
         // 5) 저장된 결과를 DTO로 변환해서 반환
         return bedAssignmentMapper.toDto(saved);
     }
@@ -129,22 +139,24 @@ public class BedAssignmentServiceImpl implements BedAssignmentService {
         return; // 문제 없으면 그냥 정상 종료 (아무 값도 반환할 필요 없는 void 메서드)
     }
 
-    // [병상 상태 변경 전용 private 메서드] bedId로 병상(BED 테이블 row)을 찾아서 OCCUPIED로 바꿈
+    // [병상 상태 변경 전용 private 메서드] bedId로 병상(BED 테이블 row)을 찾아서 OCCUPIED로 바꾸고 patientId를 채움
     // → create에서만 씀 ("새로 배정됐다" = "병상이 사용중이 됐다")
-    private void markBedOccupied(String bedId) {
+    private void markBedOccupied(String bedId, String patientId) {
         BedEntity entity = bedRepository.findById(bedId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BED_NOT_FOUND));
         entity.setBedStatus(BedStatus.OCCUPIED); // 메모리 상의 상태만 변경
+        entity.setPatientId(patientId);
         bedRepository.save(entity); // DB에 실제로 반영(UPDATE)
     }
 
-    // [병상 상태 변경 전용 private 메서드] bedId로 병상을 찾아서 EMPTY로 바꿈
+    // [병상 상태 변경 전용 private 메서드] bedId로 병상을 찾아서 EMPTY로 바꾸고 patientId를 지움
     // → update(퇴상 시)와 delete(활성 배정 삭제 시), 두 군데에서 씀
     // ("배정이 끝났다/없어졌다" = "병상이 다시 비었다"라는 같은 의미라서 재사용)
     private void markBedEmpty(String bedId) {
         BedEntity entity = bedRepository.findById(bedId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BED_NOT_FOUND));
         entity.setBedStatus(BedStatus.EMPTY);
+        entity.setPatientId(null);
         bedRepository.save(entity);
     }
 

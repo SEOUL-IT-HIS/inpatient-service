@@ -1,18 +1,23 @@
 package kr.co.seoulit.his.inpatientservice.nursing.service;
 
 import kr.co.seoulit.his.inpatientservice.nursing.dto.VitalSignDTO;
+import kr.co.seoulit.his.inpatientservice.nursing.entity.VitalSignEntity;
+import kr.co.seoulit.his.inpatientservice.nursing.entity.VitalSignHistoryEntity;
 import kr.co.seoulit.his.inpatientservice.nursing.mapper.VitalSignMapper;
+import kr.co.seoulit.his.inpatientservice.nursing.repository.VitalSignHistoryRepository;
 import kr.co.seoulit.his.inpatientservice.nursing.repository.VitalSignRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 public class VitalSignServiceImpl implements VitalSignService {
     private final VitalSignRepository vitalSignRepository;
     private final VitalSignMapper vitalSignMapper;
+    private final VitalSignHistoryRepository vitalSignHistoryRepository;
 
     @Override
     public List<VitalSignDTO> getVitalSigns() {
@@ -23,7 +28,9 @@ public class VitalSignServiceImpl implements VitalSignService {
 
     @Override
     public VitalSignDTO createVitalSign(VitalSignDTO requestDto) {
-        VitalSignDTO savedDto = vitalSignMapper.toDto(vitalSignRepository.save(vitalSignMapper.toEntity(requestDto)));
+        VitalSignEntity entity = vitalSignMapper.toEntity(requestDto);
+        entity.setVitalSignId(UUID.randomUUID().toString());
+        VitalSignDTO savedDto = vitalSignMapper.toDto(vitalSignRepository.save(entity));
         return savedDto;
 
     }
@@ -42,7 +49,20 @@ public class VitalSignServiceImpl implements VitalSignService {
         // Implementation for updating a specific vital sign
         VitalSignDTO vitalSignDTO = vitalSignRepository.findById(vitalSignId)
                 .map(entity -> {
-                    // Update the entity with values from requestDto
+                    VitalSignHistoryEntity history = VitalSignHistoryEntity.builder()
+                            .vitalSignId(entity.getVitalSignId())
+                            .admissionId(entity.getAdmissionId())
+                            .measuredAt(entity.getMeasuredAt())
+                            .temperature(entity.getTemperature())
+                            .pulse(entity.getPulse())
+                            .respiration(entity.getRespiration())
+                            .bpSystolic(entity.getBpSystolic())
+                            .bpDiastolic(entity.getBpDiastolic())
+                            .spo2(entity.getSpo2())
+                            .recorderId(entity.getRecorderId())
+                            .build();
+                    vitalSignHistoryRepository.save(history);
+
                     vitalSignMapper.updateEntityFromDto(entity, requestDto);
                     return vitalSignMapper.toDto(vitalSignRepository.save(entity));
                 })
