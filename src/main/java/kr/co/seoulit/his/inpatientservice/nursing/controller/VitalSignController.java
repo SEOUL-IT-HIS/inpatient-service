@@ -2,6 +2,7 @@ package kr.co.seoulit.his.inpatientservice.nursing.controller;
 
 import kr.co.seoulit.his.inpatientservice.common.response.ApiResponse;
 import kr.co.seoulit.his.inpatientservice.nursing.dto.VitalSignDTO;
+import kr.co.seoulit.his.inpatientservice.nursing.dto.VitalSignHistoryDTO;
 import kr.co.seoulit.his.inpatientservice.nursing.service.VitalSignService;
 
 import java.util.List;
@@ -15,6 +16,11 @@ public class VitalSignController {
 
     public VitalSignController(VitalSignService vitalSignService) {
         this.vitalSignService = vitalSignService;
+    }
+
+    @GetMapping("/{vitalSignId}/history")
+    public ApiResponse<List<VitalSignHistoryDTO>> getVitalSignHistory(@PathVariable String vitalSignId) {
+        return ApiResponse.success(vitalSignService.getVitalSignHistory(vitalSignId));
     }
 
     @GetMapping
