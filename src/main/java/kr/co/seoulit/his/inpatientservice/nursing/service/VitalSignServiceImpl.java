@@ -1,6 +1,7 @@
 package kr.co.seoulit.his.inpatientservice.nursing.service;
 
 import kr.co.seoulit.his.inpatientservice.nursing.dto.VitalSignDTO;
+import kr.co.seoulit.his.inpatientservice.nursing.dto.VitalSignHistoryDTO;
 import kr.co.seoulit.his.inpatientservice.nursing.entity.VitalSignEntity;
 import kr.co.seoulit.his.inpatientservice.nursing.entity.VitalSignHistoryEntity;
 import kr.co.seoulit.his.inpatientservice.nursing.mapper.VitalSignMapper;
@@ -25,6 +26,12 @@ public class VitalSignServiceImpl implements VitalSignService {
                 .map(vitalSignMapper::toDto)
                 .toList();
     }
+    @Override
+    public List<VitalSignHistoryDTO> getVitalSignHistory(String vitalSignId) {
+        return vitalSignHistoryRepository.findByVitalSignIdOrderByChangedAtDesc(vitalSignId).stream()
+                .map(vitalSignMapper::toDto)
+                .toList();
+    }
 
     @Override
     public VitalSignDTO createVitalSign(VitalSignDTO requestDto) {
@@ -44,36 +51,38 @@ public class VitalSignServiceImpl implements VitalSignService {
         return vitalSignDTO;
     }
 
+    private VitalSignHistoryEntity toHistorySnapshot(VitalSignEntity entity, String changeType){
+        return VitalSignHistoryEntity.builder()
+                .vitalSignId(entity.getVitalSignId())
+                .admissionId(entity.getAdmissionId())
+                .measuredAt(entity.getMeasuredAt())
+                .temperature(entity.getTemperature())
+                .pulse(entity.getPulse())
+                .respiration(entity.getRespiration())
+                .bpSystolic(entity.getBpSystolic())
+                .bpDiastolic(entity.getBpDiastolic())
+                .spo2(entity.getSpo2())
+                .recorderId(entity.getRecorderId())
+                .changeType(changeType)
+                .build();
+    }
     @Override
-    public VitalSignDTO updateVitalSign(String vitalSignId, VitalSignDTO requestDto) {
-        // Implementation for updating a specific vital sign
-        VitalSignDTO vitalSignDTO = vitalSignRepository.findById(vitalSignId)
-                .map(entity -> {
-                    VitalSignHistoryEntity history = VitalSignHistoryEntity.builder()
-                            .vitalSignId(entity.getVitalSignId())
-                            .admissionId(entity.getAdmissionId())
-                            .measuredAt(entity.getMeasuredAt())
-                            .temperature(entity.getTemperature())
-                            .pulse(entity.getPulse())
-                            .respiration(entity.getRespiration())
-                            .bpSystolic(entity.getBpSystolic())
-                            .bpDiastolic(entity.getBpDiastolic())
-                            .spo2(entity.getSpo2())
-                            .recorderId(entity.getRecorderId())
-                            .build();
-                    vitalSignHistoryRepository.save(history);
-
+    public VitalSignDTO updateVitalSign(String vitalSignId,VitalSignDTO requestDto){
+        return vitalSignRepository.findById(vitalSignId)
+                .map(entity ->{
+                    vitalSignHistoryRepository.save(toHistorySnapshot(entity,"UPDATED"));
                     vitalSignMapper.updateEntityFromDto(entity, requestDto);
                     return vitalSignMapper.toDto(vitalSignRepository.save(entity));
+
                 })
                 .orElseThrow(() -> new RuntimeException("Vital sign not found with ID: " + vitalSignId));
-        return vitalSignDTO;
     }
-
     @Override
     public void deleteVitalSign(String vitalSignId) {
         // Implementation for deleting a specific vital sign
+        VitalSignEntity entity = vitalSignRepository.findById(vitalSignId)
+                .orElseThrow(()->new RuntimeException("Vital sign not found with ID: " + vitalSignId));
+        vitalSignHistoryRepository.save(toHistorySnapshot(entity,"DELETED"));
         vitalSignRepository.deleteById(vitalSignId);
     }
-
 }

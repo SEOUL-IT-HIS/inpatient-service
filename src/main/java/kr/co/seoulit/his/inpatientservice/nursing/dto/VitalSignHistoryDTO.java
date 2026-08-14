@@ -1,23 +1,15 @@
-package kr.co.seoulit.his.inpatientservice.nursing.entity;
+package kr.co.seoulit.his.inpatientservice.nursing.dto;
 
-import jakarta.persistence.*;
 import lombok.*;
-
 import java.time.LocalDateTime;
 
-@Entity
-@Table(name = "vital_sign_history")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class VitalSignHistoryEntity {
-    @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "vital_sign_history_seq")
-    @SequenceGenerator(name = "vital_sign_history_seq", sequenceName = "vital_sign_history_seq", allocationSize = 1)
+public class VitalSignHistoryDTO {
     private Long vitalSignHistoryId;
-
     private String vitalSignId;
     private String admissionId;
     private LocalDateTime measuredAt;
@@ -29,11 +21,5 @@ public class VitalSignHistoryEntity {
     private int spo2;
     private int recorderId;
     private String changeType;
-
     private LocalDateTime changedAt;
-
-    @PrePersist
-    public void prePersist() {
-        this.changedAt = LocalDateTime.now();
-    }
 }
