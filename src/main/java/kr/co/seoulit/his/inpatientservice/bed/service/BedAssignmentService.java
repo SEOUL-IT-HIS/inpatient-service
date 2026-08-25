@@ -15,4 +15,6 @@ public interface BedAssignmentService {
     BedAssignmentDTO updateBedAssignment(Long assignmentId, BedAssignmentDTO requestDto);
 
     void deleteBedAssignment(Long assignmentId);
+
+    void releaseBedByAdmissionId(String admissionId);
 }

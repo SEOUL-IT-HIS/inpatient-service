@@ -4,7 +4,11 @@ import kr.co.seoulit.his.inpatientservice.bed.entity.BedAssignmentEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
+
 @Repository
 public interface BedAssignmentRepository extends JpaRepository<BedAssignmentEntity, Long> {
     BedAssignmentEntity findByBedIdAndReleasedAtIsNull(String bedId);
+    List<BedAssignmentEntity> findByAdmissionIdAndReleasedAtIsNull(String admissionId);
+
 }

@@ -15,6 +15,7 @@ import kr.co.seoulit.his.inpatientservice.common.exception.BusinessException;
 import kr.co.seoulit.his.inpatientservice.common.exception.ErrorCode;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -28,6 +29,7 @@ public class BedAssignmentServiceImpl implements BedAssignmentService {
     private final BedRepository bedRepository;
 
     private final BedReservationService bedReservationService;
+
 
     // "입원(Admission)" 테이블을 다루는 repository — admissionId로 patientId를 찾을 때 씀
     private final AdmissionRepository admissionRepository;
@@ -123,6 +125,17 @@ public class BedAssignmentServiceImpl implements BedAssignmentService {
             markBedEmpty(entity.getBedId());
         }
     }
+    @Override
+    public void releaseBedByAdmissionId(String admissionId) {
+        List<BedAssignmentEntity> assignments = bedAssignmentRepository.findByAdmissionIdAndReleasedAtIsNull(admissionId);
+        for (BedAssignmentEntity assignment : assignments) {
+            assignment.setReleasedAt(LocalDateTime.now());
+            bedAssignmentRepository.save(assignment);
+            markBedEmpty(assignment.getBedId());
+        }
+    }
+
+
 
     // [검증 전용 private 메서드] "이 병상, 지금 새로 배정해도 되는 상태냐?"만 확인
     // → create에서만 씀. 다른 곳에서는 쓸 필요 없음 (조회/수정/삭제엔 이 검증이 필요 없으니까)

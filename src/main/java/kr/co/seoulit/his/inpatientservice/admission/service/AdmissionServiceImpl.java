@@ -4,6 +4,7 @@ import kr.co.seoulit.his.inpatientservice.admission.dto.AdmissionDTO;
 import kr.co.seoulit.his.inpatientservice.admission.entity.AdmissionEntity;
 import kr.co.seoulit.his.inpatientservice.admission.mapper.AdmissionMapper;
 import kr.co.seoulit.his.inpatientservice.admission.repository.AdmissionRepository;
+import kr.co.seoulit.his.inpatientservice.bed.service.BedAssignmentService;
 import kr.co.seoulit.his.inpatientservice.common.exception.BusinessException;
 import kr.co.seoulit.his.inpatientservice.common.exception.ErrorCode;
 import org.springframework.stereotype.Service;
@@ -14,12 +15,8 @@ import java.util.List;
 public class AdmissionServiceImpl implements AdmissionService {
     private final AdmissionRepository admissionRepository;
     private final AdmissionMapper admissionMapper;
+    private final BedAssignmentService bedAssignmentService;
 
-
-    public AdmissionServiceImpl(AdmissionRepository admissionRepository, AdmissionMapper admissionMapper) {
-        this.admissionRepository = admissionRepository;
-        this.admissionMapper = admissionMapper;
-    }
     @Override
     public AdmissionDTO receiveAdmission(AdmissionDTO requestDto){
         AdmissionEntity entity = admissionMapper.toEntity(requestDto);
@@ -56,14 +53,26 @@ public class AdmissionServiceImpl implements AdmissionService {
         entity.setStatus(requestDto.getStatus());
         return admissionMapper.toDto(admissionRepository.save(entity));
     }
-    @Override
-    public AdmissionDTO changeStatus(String admissionId, String status){
-        AdmissionEntity entity = admissionRepository.findById(admissionId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.BED_ASSIGNMENT_NOT_FOUND));
+public AdmissionServiceImpl(AdmissionRepository admissionRepository, AdmissionMapper admissionMapper,
+        BedAssignmentService bedAssignmentService) {
+    this.admissionRepository = admissionRepository;
+    this.admissionMapper = admissionMapper;
+    this.bedAssignmentService = bedAssignmentService;
+}
 
-        entity.setStatus(status);
-        return admissionMapper.toDto(admissionRepository.save(entity));
+@Override
+public AdmissionDTO changeStatus(String admissionId, String status){
+    AdmissionEntity entity = admissionRepository.findById(admissionId)
+            .orElseThrow(() -> new BusinessException(ErrorCode.BED_ASSIGNMENT_NOT_FOUND));
+
+    entity.setStatus(status);
+    AdmissionEntity updated = admissionRepository.save(entity);
+
+    if ("DISCHARGED".equals(status)) {
+        bedAssignmentService.releaseBedByAdmissionId(admissionId);
     }
 
+    return admissionMapper.toDto(updated);
+}
 
 }
