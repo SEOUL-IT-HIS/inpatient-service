@@ -29,6 +29,9 @@ public class BedEntity {
 
     private String patientId;
 
+    // 공통코드(admin-service) 병실유형 항목의 codeValue를 그대로 저장 (예: 1인실/다인실)
+    private String roomTypeCode;
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

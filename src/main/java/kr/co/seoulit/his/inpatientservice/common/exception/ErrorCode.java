@@ -13,7 +13,8 @@ public enum ErrorCode {
     BED_NOT_FOUND("Bed not found", HttpStatus.NOT_FOUND),
     BED_RESERVATION_NOT_FOUND("Bed reservation not found", HttpStatus.NOT_FOUND),
     BED_RESERVATION_ALREADY_ACTIVE("Bed already has an active reservation", HttpStatus.CONFLICT),
-    ADMISSION_NOT_FOUND("Admission not found", HttpStatus.NOT_FOUND);
+    ADMISSION_NOT_FOUND("Admission not found", HttpStatus.NOT_FOUND),
+    ADMISSION_ALREADY_ACTIVE("Patient already has an active admission",HttpStatus.CONFLICT);
 
     private final String message;
     private final HttpStatus status;
