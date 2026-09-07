@@ -3,6 +3,7 @@ package kr.co.seoulit.his.inpatientservice.nursing.controller;
 
 import kr.co.seoulit.his.inpatientservice.common.response.ApiResponse;
 import kr.co.seoulit.his.inpatientservice.nursing.dto.RiskAssessmentDTO;
+import kr.co.seoulit.his.inpatientservice.nursing.dto.RiskAssessmentHistoryDTO;
 import kr.co.seoulit.his.inpatientservice.nursing.service.RiskAssessmentService;
 import org.springframework.web.bind.annotation.*;
 
@@ -16,6 +17,10 @@ public class RiskAssessmentController {
         this.riskAssessmentService = riskAssessmentService;
     }
 
+    @GetMapping("/{riskAssessmentId}/history")
+    public ApiResponse<List<RiskAssessmentHistoryDTO>> getRiskAssessmentHistory(@PathVariable String riskAssessmentId) {
+        return ApiResponse.success(riskAssessmentService.getRiskAssessmentHistory(riskAssessmentId));
+    }
 
     @GetMapping
     public ApiResponse<List<RiskAssessmentDTO>> getRiskAssessments() {
