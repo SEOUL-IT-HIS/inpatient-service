@@ -17,6 +17,11 @@ public class BedEntity {
     @Id
     private String bedId;
 
+    //@Column(nullable = false)
+    private String wardCd;
+
+    private String roomTypeCode;
+
     @Column(nullable = false)
     private String roomNo;
 

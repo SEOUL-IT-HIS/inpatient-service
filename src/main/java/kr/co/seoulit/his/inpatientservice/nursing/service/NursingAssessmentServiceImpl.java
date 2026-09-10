@@ -1,5 +1,6 @@
 package kr.co.seoulit.his.inpatientservice.nursing.service;
 
+import kr.co.seoulit.his.inpatientservice.common.aop.HistoryTrackable;
 import kr.co.seoulit.his.inpatientservice.nursing.dto.NursingAssessmentDTO;
 import kr.co.seoulit.his.inpatientservice.nursing.dto.NursingAssessmentHistoryDTO;
 import kr.co.seoulit.his.inpatientservice.nursing.entity.NursingAssessmentEntity;
@@ -15,12 +16,17 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
-public class NursingAssessmentServiceImpl implements NursingAssessmentService {
+public class NursingAssessmentServiceImpl implements NursingAssessmentService, HistoryTrackable {
     private final NursingAssessmentRepository nursingAssessmentRepository;
     private final NursingAssessmentMapper nursingAssessmentMapper;
     private final NursingAssessmentHistoryRepository nursingAssessmentHistoryRepository;
 
-
+    @Override
+    public void recordHistory(String id, String changeType) {
+        NursingAssessmentEntity entity = nursingAssessmentRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("NursingAssessment not found with ID: " + id));
+        nursingAssessmentHistoryRepository.save(toHistorySnapshot(entity, changeType));
+    }
     @Override
     public List<NursingAssessmentDTO> getNursingAssessments() {
         return nursingAssessmentRepository.findAll().stream()

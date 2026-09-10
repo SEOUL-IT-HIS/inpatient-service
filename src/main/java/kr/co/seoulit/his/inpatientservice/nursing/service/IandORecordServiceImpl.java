@@ -1,6 +1,7 @@
 package kr.co.seoulit.his.inpatientservice.nursing.service;
 
 
+import kr.co.seoulit.his.inpatientservice.common.aop.HistoryTrackable;
 import kr.co.seoulit.his.inpatientservice.nursing.dto.IandORecordDTO;
 import kr.co.seoulit.his.inpatientservice.nursing.dto.IandORecordHistoryDTO;
 import kr.co.seoulit.his.inpatientservice.nursing.entity.IandORecordEntity;
@@ -16,11 +17,17 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
-public class IandORecordServiceImpl implements IandORecordService {
+public class IandORecordServiceImpl implements IandORecordService, HistoryTrackable {
     private final IandORecordRepository iandORecordRepository;
     private final IandORecordMapper iandORecordMapper;
     private final IandORecordHistoryRepository iandORecordHistoryRepository;
 
+    @Override
+    public void recordHistory(String id, String changeType) {
+        IandORecordEntity entity = iandORecordRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("IandORecord not found with ID: " + id));
+        iandORecordHistoryRepository.save(toHistorySnapshot(entity, changeType));
+    }
 
     @Override
     public List<IandORecordDTO> getIandORecords() {
