@@ -136,7 +136,7 @@ public class BedAssignmentServiceImpl implements BedAssignmentService {
     }
 
     @Override
-    public String findActiveRoomTypeCode(String admissionId){
+    public String findRoomTypeCodeByAdmissionId(String admissionId){
         List<BedAssignmentEntity> assignments = bedAssignmentRepository.findByAdmissionIdAndReleasedAtIsNull(admissionId);
         if(assignments.isEmpty()){
             throw new BusinessException(ErrorCode.BED_ASSIGNMENT_NOT_FOUND);

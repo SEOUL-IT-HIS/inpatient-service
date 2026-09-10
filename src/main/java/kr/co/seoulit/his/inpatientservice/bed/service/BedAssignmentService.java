@@ -18,5 +18,5 @@ public interface BedAssignmentService {
 
     void releaseBedByAdmissionId(String admissionId);
 
-    String findActiveRoomTypeCode(String admissionId);
+    String findRoomTypeCodeByAdmissionId(String admissionId);
 }

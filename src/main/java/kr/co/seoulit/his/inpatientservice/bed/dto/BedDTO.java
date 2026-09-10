@@ -11,11 +11,12 @@ import java.time.LocalDateTime;
 @Builder
 public class BedDTO {
     private String bedId;
+    private String wardCd;
+    private String roomTypeCode;
     private String roomNo;
     private String bedNo;
     private String bedStatus;
     private String patientId;
-    private String roomTypeCode;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     public record RoomTypeUpdateRequest(String roomTypeCode) {}
