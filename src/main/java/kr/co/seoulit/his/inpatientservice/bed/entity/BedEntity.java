@@ -20,8 +20,6 @@ public class BedEntity {
     //@Column(nullable = false)
     private String wardCd;
 
-    private String roomTypeCode;
-
     @Column(nullable = false)
     private String roomNo;
 
@@ -33,6 +31,9 @@ public class BedEntity {
     private BedStatus bedStatus;
 
     private String patientId;
+
+    // 공통코드(admin-service) 병실유형 항목의 codeValue를 그대로 저장 (예: 1인실/다인실)
+    private String roomTypeCode;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

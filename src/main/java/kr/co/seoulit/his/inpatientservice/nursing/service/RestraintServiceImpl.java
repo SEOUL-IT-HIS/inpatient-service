@@ -1,5 +1,6 @@
 package kr.co.seoulit.his.inpatientservice.nursing.service;
 
+import kr.co.seoulit.his.inpatientservice.common.aop.HistoryTrackable;
 import kr.co.seoulit.his.inpatientservice.nursing.dto.RestraintDTO;
 import kr.co.seoulit.his.inpatientservice.nursing.dto.RestraintHistoryDTO;
 import kr.co.seoulit.his.inpatientservice.nursing.entity.RestraintEntity;
@@ -15,11 +16,17 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
-public class RestraintServiceImpl implements RestraintService {
+public class RestraintServiceImpl implements RestraintService, HistoryTrackable {
     private final RestraintRepository restraintRepository;
     private final RestraintMapper restraintMapper;
     private final RestraintHistoryRepository restraintHistoryRepository;
 
+    @Override
+    public void recordHistory(String id, String changeType) {
+        RestraintEntity entity = restraintRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Restraint not found with ID: " + id));
+        restraintHistoryRepository.save(toHistorySnapshot(entity, changeType));
+    }
 
     @Override
     public List<RestraintDTO> getRestraints() {

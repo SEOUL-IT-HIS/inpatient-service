@@ -1,10 +1,12 @@
 package kr.co.seoulit.his.inpatientservice.nursing.service;
 
 
+import kr.co.seoulit.his.inpatientservice.common.aop.HistoryTrackable;
 import kr.co.seoulit.his.inpatientservice.nursing.dto.RiskAssessmentDTO;
 import kr.co.seoulit.his.inpatientservice.nursing.dto.RiskAssessmentHistoryDTO;
 import kr.co.seoulit.his.inpatientservice.nursing.entity.RiskAssessmentEntity;
 import kr.co.seoulit.his.inpatientservice.nursing.entity.RiskAssessmentHistoryEntity;
+import kr.co.seoulit.his.inpatientservice.nursing.entity.VitalSignEntity;
 import kr.co.seoulit.his.inpatientservice.nursing.mapper.RiskAssessmentMapper;
 import kr.co.seoulit.his.inpatientservice.nursing.repository.RiskAssessmentHistoryRepository;
 import kr.co.seoulit.his.inpatientservice.nursing.repository.RiskAssessmentRepository;
@@ -16,11 +18,17 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
-public class RiskAssessmentServiceImpl implements RiskAssessmentService {
+public class RiskAssessmentServiceImpl implements RiskAssessmentService, HistoryTrackable {
     private final RiskAssessmentRepository riskAssessmentRepository;
     private final RiskAssessmentMapper riskAssessmentMapper;
     private final RiskAssessmentHistoryRepository riskAssessmentHistoryRepository;
 
+    @Override
+    public void recordHistory(String id,String changeType){
+        RiskAssessmentEntity entity = riskAssessmentRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("RiskAssessment not found with ID: "+id));
+        riskAssessmentHistoryRepository.save(toHistorySnapshot(entity, changeType));
+    }
 
     @Override
     public List<RiskAssessmentDTO> getRiskAssessments() {

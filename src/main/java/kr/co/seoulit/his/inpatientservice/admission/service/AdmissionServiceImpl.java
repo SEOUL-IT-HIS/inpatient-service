@@ -34,9 +34,23 @@ public class AdmissionServiceImpl implements AdmissionService {
     private final String billingChargeTopic;
     private final boolean kafkaEnabled;
 
+    public AdmissionServiceImpl(AdmissionRepository admissionRepository, AdmissionMapper admissionMapper,
+            BedAssignmentService bedAssignmentService, KafkaTemplate<String, Object> kafkaTemplate,
+            @Value("${billing.charge.topic.inpatient}") String billingChargeTopic,
+            @Value("${app.kafka.enabled}") boolean kafkaEnabled) {
+        this.admissionRepository = admissionRepository;
+        this.admissionMapper = admissionMapper;
+        this.bedAssignmentService = bedAssignmentService;
+        this.kafkaTemplate = kafkaTemplate;
+        this.billingChargeTopic = billingChargeTopic;
+        this.kafkaEnabled = kafkaEnabled;
+    }
+
     @Override
     public AdmissionDTO receiveAdmission(AdmissionDTO requestDto){
+        validateNoActiveAdmission(requestDto.getPatientId());
         AdmissionEntity entity = admissionMapper.toEntity(requestDto);
+        entity.setAdmissionId(generateNextAdmissionId());
         return admissionMapper.toDto(admissionRepository.save(entity));
     }
 
@@ -49,9 +63,28 @@ public class AdmissionServiceImpl implements AdmissionService {
 
     @Override
     public AdmissionDTO createAdmission(AdmissionDTO requestDto) {
+        validateNoActiveAdmission(requestDto.getPatientId());
         AdmissionEntity entity = admissionMapper.toEntity(requestDto);
+        entity.setAdmissionId(generateNextAdmissionId());
         return admissionMapper.toDto(admissionRepository.save(entity));
     }
+
+    // "A001", "A002" ... 형식과 이어지도록 현재 최대 번호 다음 값을 생성
+    private String generateNextAdmissionId() {
+        int maxSeq = admissionRepository.findAll().stream()
+                .map(AdmissionEntity::getAdmissionId)
+                .filter(id -> id != null && id.matches("A\\d+"))
+                .mapToInt(id -> Integer.parseInt(id.substring(1)))
+                .max()
+                .orElse(0);
+        return String.format("A%03d", maxSeq + 1);
+    }
+    private void validateNoActiveAdmission(String patientId) {
+        if (admissionRepository.existsByPatientIdAndStatusNot(patientId, "DISCHARGED")) {
+            throw new BusinessException(ErrorCode.ADMISSION_ALREADY_ACTIVE);
+        }
+    }
+
 
     @Override
     public AdmissionDTO getAdmission(String admissionId) {
@@ -70,58 +103,47 @@ public class AdmissionServiceImpl implements AdmissionService {
         entity.setStatus(requestDto.getStatus());
         return admissionMapper.toDto(admissionRepository.save(entity));
     }
-public AdmissionServiceImpl(AdmissionRepository admissionRepository, AdmissionMapper admissionMapper,
-        BedAssignmentService bedAssignmentService, KafkaTemplate<String, Object> kafkaTemplate,
-        @Value("${billing.charge.topic.inpatient}") String billingChargeTopic,
-        @Value("${app.kafka.enabled}") boolean kafkaEnabled) {
-    this.admissionRepository = admissionRepository;
-    this.admissionMapper = admissionMapper;
-    this.bedAssignmentService = bedAssignmentService;
-    this.kafkaTemplate = kafkaTemplate;
-    this.billingChargeTopic = billingChargeTopic;
-    this.kafkaEnabled = kafkaEnabled;
-}
 
-@Override
-public AdmissionDTO changeStatus(String admissionId, String status){
-    AdmissionEntity entity = admissionRepository.findById(admissionId)
-            .orElseThrow(() -> new BusinessException(ErrorCode.BED_ASSIGNMENT_NOT_FOUND));
+    @Override
+    public AdmissionDTO changeStatus(String admissionId, String status){
+        AdmissionEntity entity = admissionRepository.findById(admissionId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.BED_ASSIGNMENT_NOT_FOUND));
 
-    entity.setStatus(status);
-    AdmissionEntity updated = admissionRepository.save(entity);
+        entity.setStatus(status);
+        AdmissionEntity updated = admissionRepository.save(entity);
 
-    if ("DISCHARGED".equals(status)) {
-        bedAssignmentService.releaseBedByAdmissionId(admissionId);
+        if ("DISCHARGED".equals(status)) {
+            bedAssignmentService.releaseBedByAdmissionId(admissionId);
+        }
+
+        if ("DISCHARGE_REQUESTED".equals(status)) {
+            publishDischargeBillingEvents(updated);
+        }
+
+        return admissionMapper.toDto(updated);
     }
 
-    if ("DISCHARGE_REQUESTED".equals(status)) {
-        publishDischargeBillingEvents(updated);
+    // 퇴원신청 시점에 수납서비스로 보낼 이벤트 2건 발행: (1) 퇴원신청 신호, (2) 입원료 청구
+    private void publishDischargeBillingEvents(AdmissionEntity admission) {
+        if (!kafkaEnabled) {
+            return;
+        }
+
+        String admissionId = admission.getAdmissionId();
+        String patientId = admission.getPatientId();
+
+        kafkaTemplate.send(billingChargeTopic, admissionId,
+                BillingChargeEvent.dischargeRequest(patientId, admissionId));
+
+        String roomTypeCode = bedAssignmentService.findRoomTypeCodeByAdmissionId(admissionId);
+        String feeCode = ROOM_TYPE_FEE_CODE_MAP.get(roomTypeCode);
+        if (feeCode == null) {
+            throw new BusinessException(ErrorCode.ROOM_TYPE_FEE_CODE_NOT_MAPPED);
+        }
+        long stayDays = ChronoUnit.DAYS.between(admission.getAdmissionDate(), LocalDateTime.now());
+
+        kafkaTemplate.send(billingChargeTopic, admissionId,
+                BillingChargeEvent.roomFee(patientId, admissionId, feeCode, stayDays));
     }
-
-    return admissionMapper.toDto(updated);
-}
-
-// 퇴원신청 시점에 수납서비스로 보낼 이벤트 2건 발행: (1) 퇴원신청 신호, (2) 입원료 청구
-private void publishDischargeBillingEvents(AdmissionEntity admission) {
-    if (!kafkaEnabled) {
-        return;
-    }
-
-    String admissionId = admission.getAdmissionId();
-    String patientId = admission.getPatientId();
-
-    kafkaTemplate.send(billingChargeTopic, admissionId,
-            BillingChargeEvent.dischargeRequest(patientId, admissionId));
-
-    String roomTypeCode = bedAssignmentService.findRoomTypeCodeByAdmissionId(admissionId);
-    String feeCode = ROOM_TYPE_FEE_CODE_MAP.get(roomTypeCode);
-    if (feeCode == null) {
-        throw new BusinessException(ErrorCode.ROOM_TYPE_FEE_CODE_NOT_MAPPED);
-    }
-    long stayDays = ChronoUnit.DAYS.between(admission.getAdmissionDate(), LocalDateTime.now());
-
-    kafkaTemplate.send(billingChargeTopic, admissionId,
-            BillingChargeEvent.roomFee(patientId, admissionId, feeCode, stayDays));
-}
 
 }

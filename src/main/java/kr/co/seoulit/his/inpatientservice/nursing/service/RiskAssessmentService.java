@@ -1,5 +1,6 @@
 package kr.co.seoulit.his.inpatientservice.nursing.service;
 
+import kr.co.seoulit.his.inpatientservice.common.aop.TracksHistory;
 import kr.co.seoulit.his.inpatientservice.nursing.dto.RiskAssessmentDTO;
 import kr.co.seoulit.his.inpatientservice.nursing.dto.RiskAssessmentHistoryDTO;
 
@@ -14,7 +15,9 @@ public interface RiskAssessmentService {
 
     RiskAssessmentDTO getRiskAssessment(String patientRiskAssessmentId);
 
+    @TracksHistory(changeType = "UPDATED")
     RiskAssessmentDTO updateRiskAssessment(String patientRiskAssessmentId, RiskAssessmentDTO requestDto);
 
+    @TracksHistory(changeType = "DELETED")
     void deleteRiskAssessment(String patientRiskAssessmentId);
 }
