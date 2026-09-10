@@ -15,7 +15,8 @@ public class BedDTO {
     private String bedNo;
     private String bedStatus;
     private String patientId;
+    private String roomTypeCode;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
-
+    public record RoomTypeUpdateRequest(String roomTypeCode) {}
 }

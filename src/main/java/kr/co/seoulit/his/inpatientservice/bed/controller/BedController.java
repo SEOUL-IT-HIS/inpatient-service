@@ -3,10 +3,7 @@ package kr.co.seoulit.his.inpatientservice.bed.controller;
 import kr.co.seoulit.his.inpatientservice.bed.dto.BedDTO;
 import kr.co.seoulit.his.inpatientservice.bed.service.BedService;
 import kr.co.seoulit.his.inpatientservice.common.response.ApiResponse;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -29,5 +26,10 @@ public class BedController {
     public ApiResponse<BedDTO> getBed(@PathVariable String bedId) {
         return ApiResponse.success(bedService.getBed(bedId));
     }
+    @PatchMapping("/{bedId}/room-type")
+    public ApiResponse<BedDTO> updateRoomType(@PathVariable String bedId, @RequestBody BedDTO.RoomTypeUpdateRequest request) {
+        return ApiResponse.success(bedService.updateRoomType(bedId, request.roomTypeCode()));
+    }
+
 
 }

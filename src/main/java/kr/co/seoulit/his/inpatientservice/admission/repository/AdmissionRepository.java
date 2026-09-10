@@ -6,5 +6,5 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface AdmissionRepository extends JpaRepository<AdmissionEntity, String> {
-
+    boolean existsByPatientIdAndStatusNot(String patientId,String status);
 }

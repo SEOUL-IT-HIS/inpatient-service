@@ -35,4 +35,13 @@ public class BedServiceImpl implements BedService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.BED_ASSIGNMENT_NOT_FOUND));
         return bedMapper.toDto(entity);
     }
+
+    @Override
+    public BedDTO updateRoomType(String bedId, String roomTypeCode) {
+        BedEntity entity = bedRepository.findById(bedId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.BED_ASSIGNMENT_NOT_FOUND));
+        entity.setRoomTypeCode(roomTypeCode);
+        return bedMapper.toDto(bedRepository.save(entity));
+    }
+
 }

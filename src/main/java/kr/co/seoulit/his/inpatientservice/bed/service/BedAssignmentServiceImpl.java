@@ -135,7 +135,16 @@ public class BedAssignmentServiceImpl implements BedAssignmentService {
         }
     }
 
-
+    @Override
+    public String findActiveRoomTypeCode(String admissionId){
+        List<BedAssignmentEntity> assignments = bedAssignmentRepository.findByAdmissionIdAndReleasedAtIsNull(admissionId);
+        if(assignments.isEmpty()){
+            throw new BusinessException(ErrorCode.BED_ASSIGNMENT_NOT_FOUND);
+        }
+        BedEntity bed = bedRepository.findById(assignments.get(0).getBedId())
+                .orElseThrow(()->new BusinessException(ErrorCode.BED_NOT_FOUND));
+        return bed.getRoomTypeCode();
+    }
 
     // [검증 전용 private 메서드] "이 병상, 지금 새로 배정해도 되는 상태냐?"만 확인
     // → create에서만 씀. 다른 곳에서는 쓸 필요 없음 (조회/수정/삭제엔 이 검증이 필요 없으니까)

@@ -17,4 +17,6 @@ public interface BedAssignmentService {
     void deleteBedAssignment(Long assignmentId);
 
     void releaseBedByAdmissionId(String admissionId);
+
+    String findActiveRoomTypeCode(String admissionId);
 }
