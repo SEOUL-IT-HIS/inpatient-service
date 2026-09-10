@@ -1,5 +1,6 @@
 package kr.co.seoulit.his.inpatientservice.nursing.service;
 
+import kr.co.seoulit.his.inpatientservice.common.aop.TracksHistory;
 import kr.co.seoulit.his.inpatientservice.nursing.dto.VitalSignDTO;
 import kr.co.seoulit.his.inpatientservice.nursing.dto.VitalSignHistoryDTO;
 
@@ -14,7 +15,9 @@ public interface VitalSignService {
 
     VitalSignDTO getVitalSign(String vitalSignId);
 
+    @TracksHistory(changeType = "UPDATED")
     VitalSignDTO updateVitalSign(String vitalSignId, VitalSignDTO requestDto);
 
+    @TracksHistory(changeType = "DELETED")
     void deleteVitalSign(String vitalSignId);
 }

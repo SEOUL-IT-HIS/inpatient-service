@@ -1,5 +1,6 @@
 package kr.co.seoulit.his.inpatientservice.nursing.service;
 
+import kr.co.seoulit.his.inpatientservice.common.aop.HistoryTrackable;
 import kr.co.seoulit.his.inpatientservice.nursing.dto.VitalSignDTO;
 import kr.co.seoulit.his.inpatientservice.nursing.dto.VitalSignHistoryDTO;
 import kr.co.seoulit.his.inpatientservice.nursing.entity.VitalSignEntity;
@@ -15,11 +16,17 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
-public class VitalSignServiceImpl implements VitalSignService {
+public class VitalSignServiceImpl implements VitalSignService, HistoryTrackable {
     private final VitalSignRepository vitalSignRepository;
     private final VitalSignMapper vitalSignMapper;
     private final VitalSignHistoryRepository vitalSignHistoryRepository;
 
+    @Override
+    public void recordHistory(String id,String changeType){
+        VitalSignEntity entity = vitalSignRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Vital sign not found with ID: "+id));
+        vitalSignHistoryRepository.save(toHistorySnapshot(entity, changeType));
+    }
     @Override
     public List<VitalSignDTO> getVitalSigns() {
         return vitalSignRepository.findAll().stream()
