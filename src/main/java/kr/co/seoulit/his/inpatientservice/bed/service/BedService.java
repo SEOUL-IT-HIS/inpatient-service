@@ -10,6 +10,4 @@ public interface BedService {
     List<BedDTO> getBeds();
 
     BedDTO getBed(@PathVariable String bedId);
-
-    BedDTO updateRoomType(String bedId, String roomTypeCode);
 }

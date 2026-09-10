@@ -135,19 +135,6 @@ public class BedAssignmentServiceImpl implements BedAssignmentService {
         }
     }
 
-    // [조회] 이 입원 건이 지금 배정돼 있는 병상의 roomTypeCode를 가져옴
-    // → 퇴원신청 시 입원료 청구 이벤트에 넣을 feeCode(FEE009/011/012)를 고르기 위해 씀
-    @Override
-    public String findRoomTypeCodeByAdmissionId(String admissionId) {
-        List<BedAssignmentEntity> assignments = bedAssignmentRepository.findByAdmissionIdAndReleasedAtIsNull(admissionId);
-        if (assignments.isEmpty()) {
-            throw new BusinessException(ErrorCode.BED_ASSIGNMENT_NOT_FOUND);
-        }
-        BedEntity bed = bedRepository.findById(assignments.get(0).getBedId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.BED_NOT_FOUND));
-        return bed.getRoomTypeCode();
-    }
-
 
 
     // [검증 전용 private 메서드] "이 병상, 지금 새로 배정해도 되는 상태냐?"만 확인

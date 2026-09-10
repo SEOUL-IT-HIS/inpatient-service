@@ -11,8 +11,6 @@ import java.time.LocalDateTime;
 @Builder
 public class BedDTO {
     private String bedId;
-    private String wardCd;
-    private String roomTypeCode;
     private String roomNo;
     private String bedNo;
     private String bedStatus;
