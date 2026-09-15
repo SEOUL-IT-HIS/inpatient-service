@@ -15,7 +15,8 @@ public enum ErrorCode {
     BED_RESERVATION_ALREADY_ACTIVE("Bed already has an active reservation", HttpStatus.CONFLICT),
     ADMISSION_NOT_FOUND("Admission not found", HttpStatus.NOT_FOUND),
     ADMISSION_ALREADY_ACTIVE("Patient already has an active admission",HttpStatus.CONFLICT),
-    ROOM_TYPE_FEE_CODE_NOT_MAPPED("No billing fee code mapped for this room type", HttpStatus.CONFLICT);
+    ROOM_TYPE_FEE_CODE_NOT_MAPPED("No billing fee code mapped for this room type", HttpStatus.CONFLICT),
+    PRESCRIPTION_NOT_FOUND("Prescription not found", HttpStatus.NOT_FOUND);
 
     private final String message;
     private final HttpStatus status;
