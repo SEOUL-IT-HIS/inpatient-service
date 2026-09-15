@@ -69,6 +69,10 @@ public class BedAssignmentServiceImpl implements BedAssignmentService {
     @Transactional
     @Override
     public BedAssignmentDTO createBedAssignment(BedAssignmentDTO requestDto) {
+        // 0) 이 입원 건이 이미 다른 병상에 활성 배정돼 있는지 확인 (한 입원 건은 병상 1개만 가져야 함)
+        if (!bedAssignmentRepository.findByAdmissionIdAndReleasedAtIsNull(requestDto.getAdmissionId()).isEmpty()) {
+            throw new BusinessException(ErrorCode.ADMISSION_ALREADY_HAS_BED);
+        }
         // 1) 먼저 이 병상이 "배정 가능한 상태"인지 검증 (이미 다른 사람이 쓰고 있으면 예외 던지고 여기서 끝)
         validateBedAvailable(requestDto.getBedId());
         // 2) 요청받은 DTO를 DB에 저장할 Entity로 변환
@@ -93,6 +97,14 @@ public class BedAssignmentServiceImpl implements BedAssignmentService {
         BedAssignmentEntity entity = bedAssignmentRepository.findById(assignmentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BED_ASSIGNMENT_NOT_FOUND));
 
+        // 1.5) 병상이 바뀌는 수정인지 확인 (예: 다른 병상으로 옮기는 경우)
+        String previousBedId = entity.getBedId();
+        boolean bedChanged = !previousBedId.equals(requestDto.getBedId());
+        if (bedChanged) {
+            // 옮겨갈 새 병상이 실제로 배정 가능한 상태인지 검증
+            validateBedAvailable(requestDto.getBedId());
+        }
+
         // 2) 요청받은 값으로 필드들을 덮어씀 (아직 DB에 반영 안 됨, 메모리 상의 객체만 수정)
         entity.setBedId(requestDto.getBedId());
         entity.setAssignedAt(requestDto.getAssignedAt());
@@ -100,6 +112,15 @@ public class BedAssignmentServiceImpl implements BedAssignmentService {
 
         // 3) 수정된 내용을 DB에 저장 (UPDATE)
         BedAssignmentEntity updated = bedAssignmentRepository.save(entity);
+
+        // 3.5) 병상이 바뀐 거라면, 옛 병상은 비우고 새 병상은 사용중으로 표시해야 실제 병상현황과 안 어긋남
+        if (bedChanged) {
+            AdmissionEntity admission = admissionRepository.findById(updated.getAdmissionId())
+                    .orElseThrow(() -> new BusinessException(ErrorCode.ADMISSION_NOT_FOUND));
+            markBedEmpty(previousBedId);
+            markBedOccupied(updated.getBedId(), admission.getPatientId());
+        }
+
         // 4) 방금 저장한 releasedAt이 null이 아니면 = "이번에 퇴상 처리가 된 것"
         // → 그 병상을 다시 EMPTY(빈 병상)로 되돌림
         if (updated.getReleasedAt() != null) {
@@ -149,6 +170,13 @@ public class BedAssignmentServiceImpl implements BedAssignmentService {
     // [검증 전용 private 메서드] "이 병상, 지금 새로 배정해도 되는 상태냐?"만 확인
     // → create에서만 씀. 다른 곳에서는 쓸 필요 없음 (조회/수정/삭제엔 이 검증이 필요 없으니까)
     private void validateBedAvailable(String bedId) {
+        // 병상 자체가 점검중(MAINTENANCE)이면 배정/예약 테이블에 아무 기록이 없어도 막아야 함
+        BedEntity bed = bedRepository.findById(bedId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.BED_NOT_FOUND));
+        if (bed.getBedStatus() == BedStatus.MAINTENANCE) {
+            throw new BusinessException(ErrorCode.BED_NOT_AVAILABLE);
+        }
+
         // 이 병상에 "아직 퇴상 안 된(releasedAt이 null인)" 배정이 이미 있는지 조회
         BedAssignmentEntity existingAssignment = bedAssignmentRepository.findByBedIdAndReleasedAtIsNull(bedId);
         if (existingAssignment != null) {
