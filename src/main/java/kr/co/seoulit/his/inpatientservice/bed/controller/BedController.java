@@ -31,5 +31,9 @@ public class BedController {
         return ApiResponse.success(bedService.updateRoomType(bedId, request.roomTypeCode()));
     }
 
+    @PatchMapping("/{bedId}/ward")
+    public ApiResponse<BedDTO> updateWard(@PathVariable String bedId, @RequestBody BedDTO.WardUpdateRequest request) {
+        return ApiResponse.success(bedService.updateWard(bedId, request.wardCd()));
+    }
 
 }

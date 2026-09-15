@@ -44,4 +44,13 @@ public class BedServiceImpl implements BedService {
         BedEntity saved = bedRepository.save(entity);
         return bedMapper.toDto(saved);
     }
+
+    @Override
+    public BedDTO updateWard(String bedId, String wardCd){
+        BedEntity entity = bedRepository.findById(bedId)
+                .orElseThrow(()->new BusinessException(ErrorCode.BED_NOT_FOUND));
+        entity.setWardCd(wardCd);
+        BedEntity saved = bedRepository.save(entity);
+        return bedMapper.toDto(saved);
+    }
 }
