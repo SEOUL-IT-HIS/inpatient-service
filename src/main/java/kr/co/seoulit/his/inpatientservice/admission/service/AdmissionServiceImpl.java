@@ -89,14 +89,14 @@ public class AdmissionServiceImpl implements AdmissionService {
     @Override
     public AdmissionDTO getAdmission(String admissionId) {
         AdmissionEntity entity = admissionRepository.findById(admissionId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.BED_ASSIGNMENT_NOT_FOUND));
+                .orElseThrow(() -> new BusinessException(ErrorCode.ADMISSION_NOT_FOUND));
         return admissionMapper.toDto(entity);
     }
 
     @Override
     public AdmissionDTO updateAdmission(String admissionId, AdmissionDTO requestDto) {
         AdmissionEntity entity = admissionRepository.findById(admissionId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.BED_ASSIGNMENT_NOT_FOUND));
+                .orElseThrow(() -> new BusinessException(ErrorCode.ADMISSION_NOT_FOUND));
 
         entity.setPatientId(requestDto.getPatientId());
         entity.setAdmissionDate(requestDto.getAdmissionDate());
@@ -107,7 +107,11 @@ public class AdmissionServiceImpl implements AdmissionService {
     @Override
     public AdmissionDTO changeStatus(String admissionId, String status){
         AdmissionEntity entity = admissionRepository.findById(admissionId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.BED_ASSIGNMENT_NOT_FOUND));
+                .orElseThrow(() -> new BusinessException(ErrorCode.ADMISSION_NOT_FOUND));
+
+        if ("DISCHARGE_REQUESTED".equals(status) && isDischargeRequestedOrDischarged(entity.getStatus())) {
+            throw new BusinessException(ErrorCode.DISCHARGE_ALREADY_REQUESTED);
+        }
 
         entity.setStatus(status);
         AdmissionEntity updated = admissionRepository.save(entity);
@@ -121,6 +125,10 @@ public class AdmissionServiceImpl implements AdmissionService {
         }
 
         return admissionMapper.toDto(updated);
+    }
+
+    private boolean isDischargeRequestedOrDischarged(String currentStatus) {
+        return "DISCHARGE_REQUESTED".equals(currentStatus) || "DISCHARGED".equals(currentStatus);
     }
 
     // 퇴원신청 시점에 수납서비스로 보낼 이벤트 2건 발행: (1) 퇴원신청 신호, (2) 입원료 청구
