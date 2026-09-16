@@ -17,11 +17,11 @@
     </select>
     <select id ="getWardBedDetailList" resultType="map">
         SELECT
-            bed_id,
-            room_no,
-            bed_no,
-            bed_status,
-            patient_id
+            bed_id     AS "bedId",
+            room_no    AS "roomNo",
+            bed_no     AS "bedNo",
+            bed_status AS "bedStatus",
+            patient_id AS "patientId"
         FROM bed
         WHERE ward_cd = #{wardCd}
         ORDER BY room_no, bed_no
