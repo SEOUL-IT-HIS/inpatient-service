@@ -13,4 +13,7 @@ public interface AdmissionRepository extends JpaRepository<AdmissionEntity, Stri
     // 예약 → 배정 전환 시, 예약의 patientId로 그 환자의 입원 대기(REQUESTED) 건을 찾을 때 사용
     // (환자당 진행중 입원은 1건만 허용되므로 First로 충분)
     Optional<AdmissionEntity> findFirstByPatientIdAndStatus(String patientId, String status);
+
+    // 응급 입원요청 중복 수신 확인 — 같은 dispositionId로 이미 만든 입원 건이 있으면 무시
+    boolean existsByDispositionId(String dispositionId);
 }

@@ -5,7 +5,8 @@ import kr.co.seoulit.his.inpatientservice.admission.dto.AdmissionDTO;
 import java.util.List;
 
 public interface AdmissionService {
-    AdmissionDTO receiveAdmission(AdmissionDTO requestDto);
+    // [사용 중지] 호출하는 곳 없음 — AdmissionController의 /reception 주석 참고
+    // AdmissionDTO receiveAdmission(AdmissionDTO requestDto);
 
     List<AdmissionDTO> getAdmissions();
 
