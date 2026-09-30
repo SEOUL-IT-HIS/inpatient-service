@@ -2,6 +2,7 @@ package kr.co.seoulit.his.inpatientservice.bed.service;
 
 import jakarta.transaction.Transactional;
 import kr.co.seoulit.his.inpatientservice.admission.entity.AdmissionEntity;
+import kr.co.seoulit.his.inpatientservice.admission.event.BedAssignedEvent;
 import kr.co.seoulit.his.inpatientservice.admission.repository.AdmissionRepository;
 import kr.co.seoulit.his.inpatientservice.bed.entity.BedStatus;
 import kr.co.seoulit.his.inpatientservice.bed.dto.BedAssignmentDTO;
@@ -13,7 +14,11 @@ import kr.co.seoulit.his.inpatientservice.bed.repository.BedRepository;
 import kr.co.seoulit.his.inpatientservice.common.exception.BusinessException;
 
 import kr.co.seoulit.his.inpatientservice.common.exception.ErrorCode;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -34,17 +39,27 @@ public class BedAssignmentServiceImpl implements BedAssignmentService {
     // "입원(Admission)" 테이블을 다루는 repository — admissionId로 patientId를 찾을 때 씀
     private final AdmissionRepository admissionRepository;
 
-    // 생성자 — 스프링이 위 4개(repository 3개 + mapper 1개)를 자동으로 넣어줌(의존성 주입)
+    // 응급에서 온 입원 건에 병상이 배정되면 응급으로 BED_ASSIGNED 회신을 보낼 때 씀
+    private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final String bedAssignedTopic;
+    private final boolean kafkaEnabled;
+
+    // 생성자 — 스프링이 위 필드들을 자동으로 넣어줌(의존성 주입)
     public BedAssignmentServiceImpl(BedAssignmentRepository bedAssignmentRepository,
             BedAssignmentMapper bedAssignmentMapper,
             BedRepository bedRepository, BedReservationService bedReservationService,
-            AdmissionRepository admissionRepository) {
+            AdmissionRepository admissionRepository,
+            KafkaTemplate<String, Object> kafkaTemplate,
+            @Value("${inpatient.admission.bed-assigned.topic}") String bedAssignedTopic,
+            @Value("${app.kafka.enabled}") boolean kafkaEnabled) {
         this.bedAssignmentRepository = bedAssignmentRepository;
         this.bedAssignmentMapper = bedAssignmentMapper;
         this.bedRepository = bedRepository;
         this.bedReservationService = bedReservationService;
         this.admissionRepository = admissionRepository;
-
+        this.kafkaTemplate = kafkaTemplate;
+        this.bedAssignedTopic = bedAssignedTopic;
+        this.kafkaEnabled = kafkaEnabled;
     }
 
     // [조회] 배정 전체 목록 가져오기 — 아무것도 바꾸지 않음, 그냥 읽기만
@@ -85,8 +100,35 @@ public class BedAssignmentServiceImpl implements BedAssignmentService {
         AdmissionEntity admission = admissionRepository.findById(saved.getAdmissionId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.ADMISSION_NOT_FOUND));
         markBedOccupied(saved.getBedId(), admission.getPatientId());
+        // 4.5) 응급에서 온 입원 건이면(dispositionId가 있으면) 응급에 "병상 배정됨" 회신
+        publishBedAssignedIfEmergency(admission, saved.getBedId());
         // 5) 저장된 결과를 DTO로 변환해서 반환
         return bedAssignmentMapper.toDto(saved);
+    }
+
+    // 응급 입원요청으로 들어온 입원 건에 병상이 배정되면 BED_ASSIGNED 이벤트를 응급으로 보냄
+    // - 외래/병동 직접 등록 건(dispositionId 없음)은 아무것도 안 함
+    // - 트랜잭션이 "커밋된 뒤"에 보냄: 배정 저장이 나중에 실패해서 롤백되면, 메시지도 안 나가야
+    //   응급 화면에 "배정됨"이 잘못 뜨지 않음 (커밋 전에 보내면 되돌릴 방법이 없음)
+    private void publishBedAssignedIfEmergency(AdmissionEntity admission, String bedId) {
+        if (!kafkaEnabled || admission.getDispositionId() == null) {
+            return;
+        }
+        BedEntity bed = bedRepository.findById(bedId) // 같은 트랜잭션에서 이미 읽은 병상이라 DB를 다시 조회하지 않음
+                .orElseThrow(() -> new BusinessException(ErrorCode.BED_NOT_FOUND));
+        BedAssignedEvent event = new BedAssignedEvent(admission.getDispositionId(), bed.getWardCd(), bed.getBedId());
+
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    kafkaTemplate.send(bedAssignedTopic, event.dispositionId(), event);
+                }
+            });
+        } else {
+            // 트랜잭션 밖에서 호출된 경우(정상 흐름에선 없음) — 바로 보냄
+            kafkaTemplate.send(bedAssignedTopic, event.dispositionId(), event);
+        }
     }
 
     // [수정] 기존 배정을 고치기 — 대표적으로 "퇴상 처리"(releasedAt 채우기)가 여기로 옴
