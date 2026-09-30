@@ -17,6 +17,10 @@ public enum ErrorCode {
     ADMISSION_ALREADY_ACTIVE("Patient already has an active admission",HttpStatus.CONFLICT),
     ROOM_TYPE_FEE_CODE_NOT_MAPPED("No billing fee code mapped for this room type", HttpStatus.CONFLICT),
     PRESCRIPTION_NOT_FOUND("Prescription not found", HttpStatus.NOT_FOUND),
+    // 외래(처방코어) 연동 실패 — PrescriptionCoreClient에서 사용
+    OUTPATIENT_PRESCRIPTION_REJECTED("Outpatient service rejected the prescription request", HttpStatus.BAD_REQUEST), // 외래가 4xx 응답
+    OUTPATIENT_SERVICE_ERROR("Outpatient service error", HttpStatus.BAD_GATEWAY), // 외래가 5xx 응답 or 응답이 비어 있음
+    OUTPATIENT_SERVICE_UNAVAILABLE("Outpatient service is unavailable", HttpStatus.SERVICE_UNAVAILABLE), // 외래 서버 연결 실패/타임아웃
     DISCHARGE_ALREADY_REQUESTED("Discharge already requested for this admission", HttpStatus.CONFLICT),
     ADMISSION_ALREADY_HAS_BED("This admission already has an active bed assignment", HttpStatus.CONFLICT);
 
