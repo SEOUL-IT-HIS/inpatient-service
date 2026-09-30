@@ -37,7 +37,7 @@ public class PrescriptionServiceImpl implements PrescriptionService{
         AdmissionEntity admission = admissionRepository.findById(admissionId)
                 .orElseThrow(()->new BusinessException(ErrorCode.ADMISSION_NOT_FOUND));
         requestDto.setPatientId(admission.getPatientId());
-
+        requestDto.setPrescribedBy(admission.getDoctorId());
         PrescriptionDTO created = prescriptionCoreClient.createPrescription(admissionId, requestDto);
         created.setAdmissionId(admissionId);
 
