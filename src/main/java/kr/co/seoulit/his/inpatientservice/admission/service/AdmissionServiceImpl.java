@@ -46,13 +46,14 @@ public class AdmissionServiceImpl implements AdmissionService {
         this.kafkaEnabled = kafkaEnabled;
     }
 
-    @Override
-    public AdmissionDTO receiveAdmission(AdmissionDTO requestDto){
-        validateNoActiveAdmission(requestDto.getPatientId());
-        AdmissionEntity entity = admissionMapper.toEntity(requestDto);
-        entity.setAdmissionId(generateNextAdmissionId());
-        return admissionMapper.toDto(admissionRepository.save(entity));
-    }
+    // [사용 중지] 호출하는 곳 없음 (createAdmission과 동일 로직) — AdmissionController의 /reception 주석 참고
+    // @Override
+    // public AdmissionDTO receiveAdmission(AdmissionDTO requestDto){
+    //     validateNoActiveAdmission(requestDto.getPatientId());
+    //     AdmissionEntity entity = admissionMapper.toEntity(requestDto);
+    //     entity.setAdmissionId(generateNextAdmissionId());
+    //     return admissionMapper.toDto(admissionRepository.save(entity));
+    // }
 
     @Override
     public List<AdmissionDTO> getAdmissions() {

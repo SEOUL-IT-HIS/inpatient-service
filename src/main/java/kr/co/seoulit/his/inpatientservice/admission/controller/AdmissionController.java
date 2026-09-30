@@ -16,10 +16,14 @@ public class AdmissionController {
         this.admissionService = admissionService;
     }
 
-    @PostMapping("/reception")
-    public ApiResponse<AdmissionDTO> receiveAdmission(@RequestBody AdmissionDTO requestDto){
-        return ApiResponse.success(admissionService.receiveAdmission(requestDto));
-    }
+    // [사용 중지] 외부 서비스(원무 등)가 REST로 입원요청을 보내는 용도로 만들었으나 호출하는 곳이 없음
+    // - 원무와는 연동하지 않음, 응급 입원요청은 Kafka(emergency.admission.requested.v1)로 받기로 함
+    //   (개발표준 21.3: 조회 외 서비스 간 연동은 Kafka)
+    // - 병동 직접 등록은 아래 createAdmission(POST /api/inpatient/admission) 사용
+    // @PostMapping("/reception")
+    // public ApiResponse<AdmissionDTO> receiveAdmission(@RequestBody AdmissionDTO requestDto){
+    //     return ApiResponse.success(admissionService.receiveAdmission(requestDto));
+    // }
 
     @GetMapping
     public ApiResponse<List<AdmissionDTO>> getAdmissions() {
