@@ -23,7 +23,7 @@ public class IandORecordHistoryEntity {
     private String ioTypeCd;
     private String routeCd;
     private Integer amountMl;
-    private Integer recorderId;
+    private String recorderId; // 기록자 = admin 직원 ID(empId, 간호사) — 숫자 직접 입력에서 직원 선택으로 바뀌며 문자열로 변경
     private String changeType;
     private LocalDateTime changedAt;
 
