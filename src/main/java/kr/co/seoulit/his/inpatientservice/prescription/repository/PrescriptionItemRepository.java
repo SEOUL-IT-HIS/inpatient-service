@@ -9,4 +9,7 @@ import java.util.List;
 @Repository
 public interface PrescriptionItemRepository extends JpaRepository<PrescriptionItemEntity, String> {
     List<PrescriptionItemEntity> findByPrescriptionId(String prescriptionId);
+
+    // 검사 결과 매칭 — 외래 권장 기준: prescriptionId + itemCode
+    List<PrescriptionItemEntity> findByPrescriptionIdAndItemCode(String prescriptionId, String itemCode);
 }

@@ -14,21 +14,73 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
+import java.util.function.Supplier;
+
+/**
+ * 외래 처방코어 호출
+ * - 등록: POST /api/outpatient/prescriptions/admission/{admissionId}
+ * - 전송: POST /api/outpatient/prescriptions/{prescriptionId}/dispatch-lab | dispatch-pharmacy (자동 전송 아님 — 등록 후 따로 호출)
+ * - 취소: PATCH /api/outpatient/prescriptions/{prescriptionId}/deactivate?cancelReason=...&userId=... (body 아님, 쿼리 파라미터)
+ * 실패는 모두 call()에서 우리 BusinessException(400/502/503)으로 바꿔서 던짐
+ */
 @Component
 @RequiredArgsConstructor
 public class PrescriptionCoreClient {
 
+    private static final ParameterizedTypeReference<OutpatientApiResponse<PrescriptionDTO>> PRESCRIPTION_RESPONSE =
+            new ParameterizedTypeReference<>() {};
+    private static final ParameterizedTypeReference<OutpatientApiResponse<Object>> ANY_RESPONSE =
+            new ParameterizedTypeReference<>() {};
+
     private final RestClient outpatientRestClient;
 
     public PrescriptionDTO createPrescription(String admissionId, PrescriptionCreateDTO requestDto) {
-        OutpatientApiResponse<PrescriptionDTO> response;
+        OutpatientApiResponse<PrescriptionDTO> response = call(() -> outpatientRestClient.post()
+                .uri("/api/outpatient/prescriptions/admission/{admissionId}", admissionId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(requestDto)
+                .retrieve() // 외래가 4xx/5xx를 주면 여기서 RestClientResponseException이 던져짐
+                .body(PRESCRIPTION_RESPONSE));
+
+        // 200인데 body나 data가 비어 있으면, 서비스에서 created.setAdmissionId(...) 할 때 NPE가 나므로 여기서 막음
+        if (response == null || response.data() == null) {
+            throw new BusinessException(ErrorCode.OUTPATIENT_SERVICE_ERROR,
+                    ErrorCode.OUTPATIENT_SERVICE_ERROR.getMessage() + ": empty response");
+        }
+        return response.data();
+    }
+
+    // 검사실로 전송 (처방 중 prescriptionType "검사" 항목)
+    public void dispatchLab(String prescriptionId) {
+        call(() -> outpatientRestClient.post()
+                .uri("/api/outpatient/prescriptions/{prescriptionId}/dispatch-lab", prescriptionId)
+                .retrieve()
+                .body(ANY_RESPONSE));
+    }
+
+    // 약제부로 전송 (처방 중 prescriptionType "약품" 항목)
+    public void dispatchPharmacy(String prescriptionId) {
+        call(() -> outpatientRestClient.post()
+                .uri("/api/outpatient/prescriptions/{prescriptionId}/dispatch-pharmacy", prescriptionId)
+                .retrieve()
+                .body(ANY_RESPONSE));
+    }
+
+    // 처방 취소 — 외래가 body가 아니라 쿼리 파라미터로 받음
+    public void deactivate(String prescriptionId, String cancelReason, String userId) {
+        call(() -> outpatientRestClient.patch()
+                .uri(uri -> uri.path("/api/outpatient/prescriptions/{prescriptionId}/deactivate")
+                        .queryParam("cancelReason", cancelReason)
+                        .queryParam("userId", userId)
+                        .build(prescriptionId))
+                .retrieve()
+                .body(ANY_RESPONSE));
+    }
+
+    // 외래 호출 공통 에러 처리 — 실패 종류별로 우리 예외로 바꿈
+    private <T> T call(Supplier<T> request) {
         try {
-            response = outpatientRestClient.post()
-                    .uri("/api/outpatient/prescriptions/admission/{admissionId}", admissionId)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(requestDto)
-                    .retrieve() // 외래가 4xx/5xx를 주면 여기서 RestClientResponseException이 던져짐
-                    .body(new ParameterizedTypeReference<OutpatientApiResponse<PrescriptionDTO>>() {});
+            return request.get();
         } catch (RestClientResponseException e) {
             // 외래가 응답은 했지만 실패(4xx/5xx) — 외래 에러 body의 사유를 담아서 우리 예외로 바꿈
             throw toBusinessException(e);
@@ -40,13 +92,6 @@ public class PrescriptionCoreClient {
             throw new BusinessException(ErrorCode.OUTPATIENT_SERVICE_ERROR,
                     ErrorCode.OUTPATIENT_SERVICE_ERROR.getMessage() + ": " + e.getMessage());
         }
-
-        // 200인데 body나 data가 비어 있으면, 서비스에서 created.setAdmissionId(...) 할 때 NPE가 나므로 여기서 막음
-        if (response == null || response.data() == null) {
-            throw new BusinessException(ErrorCode.OUTPATIENT_SERVICE_ERROR,
-                    ErrorCode.OUTPATIENT_SERVICE_ERROR.getMessage() + ": empty response");
-        }
-        return response.data();
     }
 
     // 외래 실패 응답 → 우리 BusinessException

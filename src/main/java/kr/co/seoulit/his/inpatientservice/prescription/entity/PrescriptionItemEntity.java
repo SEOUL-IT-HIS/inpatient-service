@@ -32,6 +32,13 @@ public class PrescriptionItemEntity {
     private String labOrderId;
     private String rejectReason;
     private String dosageFormCd;
+
+    // 검사 결과 — 검사서비스가 발행한 lab.lab-result.reported.v1을 병동이 받아서 prescriptionId + itemCode로 매칭해 저장
+    private String resultStatus;
+    @jakarta.persistence.Column(length = 1000)
+    private String resultSummary;
+    private LocalDateTime resultReportedAt;
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
