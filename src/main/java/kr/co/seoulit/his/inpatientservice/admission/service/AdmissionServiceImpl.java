@@ -12,7 +12,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
@@ -149,7 +149,10 @@ public class AdmissionServiceImpl implements AdmissionService {
         if (feeCode == null) {
             throw new BusinessException(ErrorCode.ROOM_TYPE_FEE_CODE_NOT_MAPPED);
         }
-        long stayDays = ChronoUnit.DAYS.between(admission.getAdmissionDate(), LocalDateTime.now());
+        // 입원일수는 날짜(자정) 기준으로 세고, 당일 입·퇴원도 최소 1일로 청구
+        // (만 24시간 기준으로 세면 하루가 안 된 입원이 0일이 되어 수납의 수량 제약(quantity > 0)에 걸려 청구가 실패함)
+        long stayDays = Math.max(1,
+                ChronoUnit.DAYS.between(admission.getAdmissionDate().toLocalDate(), LocalDate.now()));
 
         kafkaTemplate.send(billingChargeTopic, admissionId,
                 BillingChargeEvent.roomFee(patientId, admissionId, feeCode, stayDays));
