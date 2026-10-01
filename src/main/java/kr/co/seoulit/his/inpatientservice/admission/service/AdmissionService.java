@@ -17,4 +17,7 @@ public interface AdmissionService {
     AdmissionDTO updateAdmission(String admissionId, AdmissionDTO requestDto);
 
     AdmissionDTO changeStatus(String admissionId, String status);
+
+    // 담당의(주치의) 지정/변경 — 응급 요청에 의사가 없거나, 병동이 주치의를 따로 정할 때
+    AdmissionDTO changeDoctor(String admissionId, String doctorId);
 }

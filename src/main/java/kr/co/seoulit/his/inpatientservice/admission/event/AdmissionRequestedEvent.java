@@ -9,7 +9,8 @@ import java.time.LocalDateTime;
  * 응급팀과 합의한 규격 그대로. requestedAt은 타임존 없는 ISO 형식("2026-10-01T14:30:00")
  */
 public record AdmissionRequestedEvent(
-        String dispositionId,   // 요청 식별자 — 회신에 그대로 돌려줌
+        String dispositionId,   // 요청 식별자 — 회신에 그대로 돌려줌 (거부 후 재요청 시에도 같은 값)
+        String admissionRequestId, // 요청 1건마다 새로 만드는 ID — 회신에 그대로 돌려주면 응급이 정확한 요청에 반영 (없을 수 있음)
         String encounterId,     // 응급 접수 ID
         String patientId,
         String targetDeptCode,  // 진료과 (공통코드 DEPT_CD)
@@ -35,6 +36,7 @@ public record AdmissionRequestedEvent(
                 .admissionDeptId(targetDeptCode)
                 .status(INITIAL_STATUS)
                 .dispositionId(dispositionId)
+                .admissionRequestId(admissionRequestId)
                 .encounterId(encounterId)
                 .wardPref(wardPref)
                 .isolationYn(isolationYn)

@@ -5,6 +5,7 @@ package kr.co.seoulit.his.inpatientservice.admission.event;
  * 병동 직원이 직접 거절하는 기능은 없음 — 입원요청을 받을 수 없을 때(예: 이미 입원 중인 환자) 자동 발행
  */
 public record AdmissionRejectedEvent(
-        String dispositionId,   // 응급 요청 식별자 그대로
+        String dispositionId,       // 응급 요청 식별자 그대로
+        String admissionRequestId,  // 거절한 요청의 ID 그대로 (거부 후 재요청은 dispositionId가 같아서 이 값으로 구분)
         String rejectReason
 ) {}

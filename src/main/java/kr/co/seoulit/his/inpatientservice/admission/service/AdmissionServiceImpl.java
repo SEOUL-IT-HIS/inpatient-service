@@ -12,7 +12,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
@@ -95,6 +95,22 @@ public class AdmissionServiceImpl implements AdmissionService {
     }
 
     @Override
+    public AdmissionDTO changeDoctor(String admissionId, String doctorId) {
+        if (doctorId == null || doctorId.isBlank()) {
+            throw new BusinessException(ErrorCode.DOCTOR_ID_REQUIRED);
+        }
+        AdmissionEntity entity = admissionRepository.findById(admissionId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.ADMISSION_NOT_FOUND));
+        if ("DISCHARGED".equals(entity.getStatus())) {
+            throw new BusinessException(ErrorCode.ADMISSION_ALREADY_DISCHARGED);
+        }
+        // 담당의만 바꿈 — updateAdmission(PUT)은 환자/입원일/상태까지 덮어써서 담당의 변경에는 쓰지 않음
+        // requestedBy(입원을 요청한 응급 의사)는 기록용이라 그대로 둠
+        entity.setDoctorId(doctorId.trim());
+        return admissionMapper.toDto(admissionRepository.save(entity));
+    }
+
+    @Override
     public AdmissionDTO updateAdmission(String admissionId, AdmissionDTO requestDto) {
         AdmissionEntity entity = admissionRepository.findById(admissionId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.ADMISSION_NOT_FOUND));
@@ -149,7 +165,10 @@ public class AdmissionServiceImpl implements AdmissionService {
         if (feeCode == null) {
             throw new BusinessException(ErrorCode.ROOM_TYPE_FEE_CODE_NOT_MAPPED);
         }
-        long stayDays = ChronoUnit.DAYS.between(admission.getAdmissionDate(), LocalDateTime.now());
+        // 입원일수는 날짜(자정) 기준으로 세고, 당일 입·퇴원도 최소 1일로 청구
+        // (만 24시간 기준으로 세면 하루가 안 된 입원이 0일이 되어 수납의 수량 제약(quantity > 0)에 걸려 청구가 실패함)
+        long stayDays = Math.max(1,
+                ChronoUnit.DAYS.between(admission.getAdmissionDate().toLocalDate(), LocalDate.now()));
 
         kafkaTemplate.send(billingChargeTopic, admissionId,
                 BillingChargeEvent.roomFee(patientId, admissionId, feeCode, stayDays));

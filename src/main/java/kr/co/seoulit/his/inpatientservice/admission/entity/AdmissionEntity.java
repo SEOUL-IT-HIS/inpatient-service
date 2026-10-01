@@ -30,6 +30,7 @@ public class AdmissionEntity {
     // 외래/병동 직접 등록 건은 모두 null
     @Column(unique = true)
     private String dispositionId;   // 응급 요청 식별자 — 회신(BED_ASSIGNED/REJECTED)에 그대로 돌려줌, 중복 수신 확인용
+    private String admissionRequestId; // 이 입원 건을 만든 응급 요청의 ID — 나중에 병상 배정 회신에 그대로 넣기 위해 저장
     private String encounterId;     // 응급 접수 ID
     private String wardPref;        // 희망 병동 (공통코드 WARD_CD) — 병상 배정 시 참고
     @Column(length = 1)

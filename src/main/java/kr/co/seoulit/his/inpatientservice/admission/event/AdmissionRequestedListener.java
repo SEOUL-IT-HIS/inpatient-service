@@ -51,7 +51,8 @@ public class AdmissionRequestedListener {
                     "spring.json.value.default.type=kr.co.seoulit.his.inpatientservice.admission.event.AdmissionRequestedEvent"
             })
     public void onAdmissionRequested(AdmissionRequestedEvent event) {
-        log.info("admission request received: dispositionId={} patientId={}", event.dispositionId(), event.patientId());
+        log.info("admission request received: dispositionId={} admissionRequestId={} patientId={}",
+                event.dispositionId(), event.admissionRequestId(), event.patientId());
 
         // 회신할 키가 없으면 처리할 수 없음 — 로그만 남기고 버림
         if (event.dispositionId() == null || event.dispositionId().isBlank()) {
@@ -67,7 +68,7 @@ public class AdmissionRequestedListener {
 
         // 환자 ID가 없으면 입원 건을 만들 수 없으므로 바로 거절 회신
         if (event.patientId() == null || event.patientId().isBlank()) {
-            reject(event.dispositionId(), "patientId is required");
+            reject(event, "patientId is required");
             return;
         }
 
@@ -78,13 +79,16 @@ public class AdmissionRequestedListener {
                     event.dispositionId(), created.getAdmissionId());
         } catch (BusinessException e) {
             // 예: ADMISSION_ALREADY_ACTIVE("Patient already has an active admission")
-            reject(event.dispositionId(), e.getMessage());
+            reject(event, e.getMessage());
         }
     }
 
     // 병동 → 응급 거절 회신 (key = dispositionId, 응급팀 합의)
-    private void reject(String dispositionId, String reason) {
-        log.info("admission request rejected: dispositionId={} reason={}", dispositionId, reason);
-        kafkaTemplate.send(rejectedTopic, dispositionId, new AdmissionRejectedEvent(dispositionId, reason));
+    // admissionRequestId는 받은 값 그대로 돌려줌 — 거부 후 재요청은 dispositionId가 같아서 응급이 이 값으로 요청을 구분
+    private void reject(AdmissionRequestedEvent event, String reason) {
+        log.info("admission request rejected: dispositionId={} admissionRequestId={} reason={}",
+                event.dispositionId(), event.admissionRequestId(), reason);
+        kafkaTemplate.send(rejectedTopic, event.dispositionId(),
+                new AdmissionRejectedEvent(event.dispositionId(), event.admissionRequestId(), reason));
     }
 }

@@ -116,7 +116,9 @@ public class BedAssignmentServiceImpl implements BedAssignmentService {
         }
         BedEntity bed = bedRepository.findById(bedId) // 같은 트랜잭션에서 이미 읽은 병상이라 DB를 다시 조회하지 않음
                 .orElseThrow(() -> new BusinessException(ErrorCode.BED_NOT_FOUND));
-        BedAssignedEvent event = new BedAssignedEvent(admission.getDispositionId(), bed.getWardCd(), bed.getBedId());
+        // admissionRequestId: 이 입원 건을 만든 응급 요청의 ID (입원 건 생성 때 저장해 둔 값)
+        BedAssignedEvent event = new BedAssignedEvent(admission.getDispositionId(), admission.getAdmissionRequestId(),
+                bed.getWardCd(), bed.getBedId());
 
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
