@@ -95,6 +95,22 @@ public class AdmissionServiceImpl implements AdmissionService {
     }
 
     @Override
+    public AdmissionDTO changeDoctor(String admissionId, String doctorId) {
+        if (doctorId == null || doctorId.isBlank()) {
+            throw new BusinessException(ErrorCode.DOCTOR_ID_REQUIRED);
+        }
+        AdmissionEntity entity = admissionRepository.findById(admissionId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.ADMISSION_NOT_FOUND));
+        if ("DISCHARGED".equals(entity.getStatus())) {
+            throw new BusinessException(ErrorCode.ADMISSION_ALREADY_DISCHARGED);
+        }
+        // 담당의만 바꿈 — updateAdmission(PUT)은 환자/입원일/상태까지 덮어써서 담당의 변경에는 쓰지 않음
+        // requestedBy(입원을 요청한 응급 의사)는 기록용이라 그대로 둠
+        entity.setDoctorId(doctorId.trim());
+        return admissionMapper.toDto(admissionRepository.save(entity));
+    }
+
+    @Override
     public AdmissionDTO updateAdmission(String admissionId, AdmissionDTO requestDto) {
         AdmissionEntity entity = admissionRepository.findById(admissionId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.ADMISSION_NOT_FOUND));

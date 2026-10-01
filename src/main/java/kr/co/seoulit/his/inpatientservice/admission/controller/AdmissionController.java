@@ -1,6 +1,7 @@
 package kr.co.seoulit.his.inpatientservice.admission.controller;
 
 import kr.co.seoulit.his.inpatientservice.admission.dto.AdmissionDTO;
+import kr.co.seoulit.his.inpatientservice.admission.dto.AdmissionDoctorRequest;
 import kr.co.seoulit.his.inpatientservice.admission.service.AdmissionService;
 import kr.co.seoulit.his.inpatientservice.common.response.ApiResponse;
 import org.springframework.web.bind.annotation.*;
@@ -44,6 +45,13 @@ public class AdmissionController {
                                                   @RequestBody AdmissionDTO requestDto){
         return ApiResponse.success(admissionService.changeStatus(admissionId,requestDto.getStatus()));
 
+    }
+
+    // 담당의(주치의)만 지정/변경 — 처방요청 시 이 값이 처방의사(prescribedBy)로 외래에 전달됨
+    @PatchMapping("/{admissionId}/doctor")
+    public ApiResponse<AdmissionDTO> changeDoctor(@PathVariable String admissionId,
+                                                  @RequestBody AdmissionDoctorRequest request) {
+        return ApiResponse.success(admissionService.changeDoctor(admissionId, request.doctorId()));
     }
 
     @PutMapping("/{admissionId}")
