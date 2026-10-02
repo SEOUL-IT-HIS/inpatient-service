@@ -20,7 +20,7 @@ public class AdminCodeClient {
 
         AdminApiResponse<List<CommonCodeItemDTO>> response = adminRestClient.get()
                 .uri(uriBuilder -> uriBuilder
-                        .path("/api/commonCodeItem/list")
+                        .path("/api/admin/commonCodeItem/list")
                         .queryParam("groupId", groupId)
                         .build())
                 .retrieve()
@@ -30,7 +30,7 @@ public class AdminCodeClient {
     }
     private String findGroupId(String groupCode){
         AdminApiResponse<List<CommonCodeGroupDTO>> response = adminRestClient.get()
-                .uri("/api/commonCodeGroup/list")
+                .uri("/api/admin/commonCodeGroup/list")
                 .retrieve()
                 .body(new org.springframework.core.ParameterizedTypeReference<AdminApiResponse<List<CommonCodeGroupDTO>>>(){});
         return response.data().stream()

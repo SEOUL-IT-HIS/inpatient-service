@@ -32,7 +32,7 @@ public class BedServiceImpl implements BedService {
     @Override
     public BedDTO getBed(String bedId) {
         BedEntity entity = bedRepository.findById(bedId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.BED_ASSIGNMENT_NOT_FOUND));
+                .orElseThrow(() -> new BusinessException(ErrorCode.BED_NOT_FOUND));
         return bedMapper.toDto(entity);
     }
 
