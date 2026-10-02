@@ -130,6 +130,13 @@ public class AdmissionServiceImpl implements AdmissionService {
             throw new BusinessException(ErrorCode.DISCHARGE_ALREADY_REQUESTED);
         }
 
+        // 퇴원신청이면 입원료 청구 이벤트를 상태 저장 "전에" 먼저 만들어 둠
+        // (병상배정 없음/병실유형 미매핑으로 실패하면 상태도 안 바뀌고 이벤트도 안 나가야 다시 시도할 수 있음)
+        BillingChargeEvent roomFeeEvent = null;
+        if ("DISCHARGE_REQUESTED".equals(status) && kafkaEnabled) {
+            roomFeeEvent = buildRoomFeeEvent(entity);
+        }
+
         entity.setStatus(status);
         AdmissionEntity updated = admissionRepository.save(entity);
 
@@ -137,8 +144,8 @@ public class AdmissionServiceImpl implements AdmissionService {
             bedAssignmentService.releaseBedByAdmissionId(admissionId);
         }
 
-        if ("DISCHARGE_REQUESTED".equals(status)) {
-            publishDischargeBillingEvents(updated);
+        if (roomFeeEvent != null) {
+            publishDischargeBillingEvents(updated, roomFeeEvent);
         }
 
         return admissionMapper.toDto(updated);
@@ -149,17 +156,17 @@ public class AdmissionServiceImpl implements AdmissionService {
     }
 
     // 퇴원신청 시점에 수납서비스로 보낼 이벤트 2건 발행: (1) 퇴원신청 신호, (2) 입원료 청구
-    private void publishDischargeBillingEvents(AdmissionEntity admission) {
-        if (!kafkaEnabled) {
-            return;
-        }
-
+    private void publishDischargeBillingEvents(AdmissionEntity admission, BillingChargeEvent roomFeeEvent) {
         String admissionId = admission.getAdmissionId();
-        String patientId = admission.getPatientId();
 
         kafkaTemplate.send(billingChargeTopic, admissionId,
-                BillingChargeEvent.dischargeRequest(patientId, admissionId));
+                BillingChargeEvent.dischargeRequest(admission.getPatientId(), admissionId));
+        kafkaTemplate.send(billingChargeTopic, admissionId, roomFeeEvent);
+    }
 
+    // 입원료 청구 이벤트 생성 — 활성 병상배정이 없으면 BED_ASSIGNMENT_NOT_FOUND, 병실유형이 매핑에 없으면 ROOM_TYPE_FEE_CODE_NOT_MAPPED
+    private BillingChargeEvent buildRoomFeeEvent(AdmissionEntity admission) {
+        String admissionId = admission.getAdmissionId();
         String roomTypeCode = bedAssignmentService.findRoomTypeCodeByAdmissionId(admissionId);
         String feeCode = ROOM_TYPE_FEE_CODE_MAP.get(roomTypeCode);
         if (feeCode == null) {
@@ -169,9 +176,7 @@ public class AdmissionServiceImpl implements AdmissionService {
         // (만 24시간 기준으로 세면 하루가 안 된 입원이 0일이 되어 수납의 수량 제약(quantity > 0)에 걸려 청구가 실패함)
         long stayDays = Math.max(1,
                 ChronoUnit.DAYS.between(admission.getAdmissionDate().toLocalDate(), LocalDate.now()));
-
-        kafkaTemplate.send(billingChargeTopic, admissionId,
-                BillingChargeEvent.roomFee(patientId, admissionId, feeCode, stayDays));
+        return BillingChargeEvent.roomFee(admission.getPatientId(), admissionId, feeCode, stayDays);
     }
 
 }
