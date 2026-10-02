@@ -190,6 +190,8 @@ public class BedAssignmentServiceImpl implements BedAssignmentService {
             markBedEmpty(entity.getBedId());
         }
     }
+    // @Transactional: 배정 퇴상 + 병상 EMPTY를 하나로 묶음 (퇴원 확정에서 호출되면 그 트랜잭션에 합류)
+    @Transactional
     @Override
     public void releaseBedByAdmissionId(String admissionId) {
         List<BedAssignmentEntity> assignments = bedAssignmentRepository.findByAdmissionIdAndReleasedAtIsNull(admissionId);

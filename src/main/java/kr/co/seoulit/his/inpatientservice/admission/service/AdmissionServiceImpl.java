@@ -1,5 +1,6 @@
 package kr.co.seoulit.his.inpatientservice.admission.service;
 
+import jakarta.transaction.Transactional;
 import kr.co.seoulit.his.inpatientservice.admission.dto.AdmissionDTO;
 import kr.co.seoulit.his.inpatientservice.admission.entity.AdmissionEntity;
 import kr.co.seoulit.his.inpatientservice.admission.event.BillingChargeEvent;
@@ -11,6 +12,8 @@ import kr.co.seoulit.his.inpatientservice.common.exception.ErrorCode;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
@@ -121,6 +124,9 @@ public class AdmissionServiceImpl implements AdmissionService {
         return admissionMapper.toDto(admissionRepository.save(entity));
     }
 
+    // @Transactional: 입원 상태 저장 + 배정 퇴상 + 병상 EMPTY를 하나로 묶음
+    // (병상 해제 중 실패하면 상태도 롤백 → "환자는 DISCHARGED인데 병상은 OCCUPIED"로 남지 않음)
+    @Transactional
     @Override
     public AdmissionDTO changeStatus(String admissionId, String status){
         AdmissionEntity entity = admissionRepository.findById(admissionId)
@@ -156,12 +162,27 @@ public class AdmissionServiceImpl implements AdmissionService {
     }
 
     // 퇴원신청 시점에 수납서비스로 보낼 이벤트 2건 발행: (1) 퇴원신청 신호, (2) 입원료 청구
+    // - 트랜잭션이 "커밋된 뒤"에 보냄: 상태 저장이 롤백되면 청구 이벤트도 나가지 않아야 함 (병상배정 회신과 같은 방식)
     private void publishDischargeBillingEvents(AdmissionEntity admission, BillingChargeEvent roomFeeEvent) {
         String admissionId = admission.getAdmissionId();
+        BillingChargeEvent dischargeRequestEvent = BillingChargeEvent.dischargeRequest(admission.getPatientId(), admissionId);
 
-        kafkaTemplate.send(billingChargeTopic, admissionId,
-                BillingChargeEvent.dischargeRequest(admission.getPatientId(), admissionId));
-        kafkaTemplate.send(billingChargeTopic, admissionId, roomFeeEvent);
+        Runnable send = () -> {
+            kafkaTemplate.send(billingChargeTopic, admissionId, dischargeRequestEvent);
+            kafkaTemplate.send(billingChargeTopic, admissionId, roomFeeEvent);
+        };
+
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    send.run();
+                }
+            });
+        } else {
+            // 트랜잭션 밖에서 호출된 경우(정상 흐름에선 없음) — 바로 보냄
+            send.run();
+        }
     }
 
     // 입원료 청구 이벤트 생성 — 활성 병상배정이 없으면 BED_ASSIGNMENT_NOT_FOUND, 병실유형이 매핑에 없으면 ROOM_TYPE_FEE_CODE_NOT_MAPPED
