@@ -1,6 +1,7 @@
 package kr.co.seoulit.his.inpatientservice.nursing.service;
 
 import kr.co.seoulit.his.inpatientservice.common.aop.HistoryTrackable;
+import kr.co.seoulit.his.inpatientservice.common.aop.TracksHistory;
 import kr.co.seoulit.his.inpatientservice.nursing.dto.VitalSignDTO;
 import kr.co.seoulit.his.inpatientservice.nursing.dto.VitalSignHistoryDTO;
 import kr.co.seoulit.his.inpatientservice.nursing.entity.VitalSignEntity;
@@ -73,23 +74,24 @@ public class VitalSignServiceImpl implements VitalSignService, HistoryTrackable 
                 .changeType(changeType)
                 .build();
     }
+    // 변경이력은 HistoryTrackingAspect가 실행 직전에 저장 (어노테이션은 구현 메서드에 있어야 AOP가 적용됨)
+    @TracksHistory(changeType = "UPDATED")
     @Override
     public VitalSignDTO updateVitalSign(String vitalSignId,VitalSignDTO requestDto){
         return vitalSignRepository.findById(vitalSignId)
                 .map(entity ->{
-                    vitalSignHistoryRepository.save(toHistorySnapshot(entity,"UPDATED"));
                     vitalSignMapper.updateEntityFromDto(entity, requestDto);
                     return vitalSignMapper.toDto(vitalSignRepository.save(entity));
 
                 })
                 .orElseThrow(() -> new RuntimeException("Vital sign not found with ID: " + vitalSignId));
     }
+    @TracksHistory(changeType = "DELETED")
     @Override
     public void deleteVitalSign(String vitalSignId) {
         // Implementation for deleting a specific vital sign
         VitalSignEntity entity = vitalSignRepository.findById(vitalSignId)
                 .orElseThrow(()->new RuntimeException("Vital sign not found with ID: " + vitalSignId));
-        vitalSignHistoryRepository.save(toHistorySnapshot(entity,"DELETED"));
         vitalSignRepository.deleteById(vitalSignId);
     }
 }

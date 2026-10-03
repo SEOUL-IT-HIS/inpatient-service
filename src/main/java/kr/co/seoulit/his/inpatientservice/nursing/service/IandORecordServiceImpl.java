@@ -2,6 +2,7 @@ package kr.co.seoulit.his.inpatientservice.nursing.service;
 
 
 import kr.co.seoulit.his.inpatientservice.common.aop.HistoryTrackable;
+import kr.co.seoulit.his.inpatientservice.common.aop.TracksHistory;
 import kr.co.seoulit.his.inpatientservice.nursing.dto.IandORecordDTO;
 import kr.co.seoulit.his.inpatientservice.nursing.dto.IandORecordHistoryDTO;
 import kr.co.seoulit.his.inpatientservice.nursing.entity.IandORecordEntity;
@@ -63,23 +64,24 @@ public class IandORecordServiceImpl implements IandORecordService, HistoryTracka
     }
 
 
+    // 변경이력은 HistoryTrackingAspect가 실행 직전에 저장 (어노테이션은 구현 메서드에 있어야 AOP가 적용됨)
+    @TracksHistory(changeType = "UPDATED")
     @Override
     public IandORecordDTO updateIandORecord(String iandORecordId, IandORecordDTO requestDto) {
         return iandORecordRepository.findById(iandORecordId)
                 .map(entity -> {
-                    iandORecordHistoryRepository.save(toHistorySnapshot(entity, "UPDATED"));
                     iandORecordMapper.updateEntityFromDto(entity, requestDto);
                     return iandORecordMapper.toDto(iandORecordRepository.save(entity));
 
                 })
                 .orElseThrow(() -> new RuntimeException("I and O record not found with ID: " + iandORecordId));
     }
+    @TracksHistory(changeType = "DELETED")
     @Override
     public void deleteIandORecord(String iandORecordId) {
         // Implementation for deleting a specific I and O record
         IandORecordEntity entity = iandORecordRepository.findById(iandORecordId)
                 .orElseThrow(()->new RuntimeException("I and O record not found with ID: " + iandORecordId));
-        iandORecordHistoryRepository.save(toHistorySnapshot(entity, "DELETED"));
         iandORecordRepository.delete(entity);
     }
 

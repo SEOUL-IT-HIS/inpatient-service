@@ -1,6 +1,7 @@
 package kr.co.seoulit.his.inpatientservice.nursing.service;
 
 import kr.co.seoulit.his.inpatientservice.common.aop.HistoryTrackable;
+import kr.co.seoulit.his.inpatientservice.common.aop.TracksHistory;
 import kr.co.seoulit.his.inpatientservice.nursing.dto.NursingAssessmentDTO;
 import kr.co.seoulit.his.inpatientservice.nursing.dto.NursingAssessmentHistoryDTO;
 import kr.co.seoulit.his.inpatientservice.nursing.entity.NursingAssessmentEntity;
@@ -61,22 +62,23 @@ public class NursingAssessmentServiceImpl implements NursingAssessmentService, H
     }
 
 
+    // 변경이력은 HistoryTrackingAspect가 실행 직전에 저장 (어노테이션은 구현 메서드에 있어야 AOP가 적용됨)
+    @TracksHistory(changeType = "UPDATED")
     @Override
     public NursingAssessmentDTO updateNursingAssessment(String nursingAssessmentId, NursingAssessmentDTO requestDto) {
         return nursingAssessmentRepository.findById(nursingAssessmentId)
                 .map(entity -> {
-                    nursingAssessmentHistoryRepository.save(toHistorySnapshot(entity, "UPDATED"));
                     nursingAssessmentMapper.updateEntityFromDto(entity, requestDto);
                     return nursingAssessmentMapper.toDto(nursingAssessmentRepository.save(entity));
                 })
                 .orElseThrow(() -> new RuntimeException("Nursing assessment not found with ID: " + nursingAssessmentId));
     }
+    @TracksHistory(changeType = "DELETED")
     @Override
     public void deleteNursingAssessment(String nursingAssessmentId) {
         // Implementation for deleting a specific nursing assessment
         NursingAssessmentEntity entity = nursingAssessmentRepository.findById(nursingAssessmentId)
                 .orElseThrow(()->new RuntimeException("Nursing assessment not found with ID: " + nursingAssessmentId));
-        nursingAssessmentHistoryRepository.save(toHistorySnapshot(entity, "DELETED"));
         nursingAssessmentRepository.delete(entity);
     }
 

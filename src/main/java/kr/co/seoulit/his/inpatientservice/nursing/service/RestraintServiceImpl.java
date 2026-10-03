@@ -1,6 +1,7 @@
 package kr.co.seoulit.his.inpatientservice.nursing.service;
 
 import kr.co.seoulit.his.inpatientservice.common.aop.HistoryTrackable;
+import kr.co.seoulit.his.inpatientservice.common.aop.TracksHistory;
 import kr.co.seoulit.his.inpatientservice.nursing.dto.RestraintDTO;
 import kr.co.seoulit.his.inpatientservice.nursing.dto.RestraintHistoryDTO;
 import kr.co.seoulit.his.inpatientservice.nursing.entity.RestraintEntity;
@@ -62,23 +63,24 @@ public class RestraintServiceImpl implements RestraintService, HistoryTrackable 
     }
 
 
+    // 변경이력은 HistoryTrackingAspect가 실행 직전에 저장 (어노테이션은 구현 메서드에 있어야 AOP가 적용됨)
+    @TracksHistory(changeType = "UPDATED")
     @Override
     public RestraintDTO updateRestraint(String restraintId, RestraintDTO requestDto) {
         return restraintRepository.findById(restraintId)
                 .map(entity -> {
-                    restraintHistoryRepository.save(toHistorySnapshot(entity, "UPDATED"));
                     restraintMapper.updateEntityFromDto(entity, requestDto);
                     return restraintMapper.toDto(restraintRepository.save(entity));
 
                 })
                 .orElseThrow(() -> new RuntimeException("Restraint not found with ID: " + restraintId));
     }
+    @TracksHistory(changeType = "DELETED")
     @Override
     public void deleteRestraint(String restraintId) {
         // Implementation for deleting a specific restraint
         RestraintEntity entity = restraintRepository.findById(restraintId)
                 .orElseThrow(()->new RuntimeException("Restraint not found with ID: " + restraintId));
-        restraintHistoryRepository.save(toHistorySnapshot(entity, "DELETED"));
         restraintRepository.delete(entity);
     }
 
