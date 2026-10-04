@@ -1,6 +1,12 @@
 package kr.co.seoulit.his.inpatientservice.nursing.service;
 
+import kr.co.seoulit.his.inpatientservice.admission.entity.AdmissionEntity;
+import kr.co.seoulit.his.inpatientservice.admission.repository.AdmissionRepository;
 import kr.co.seoulit.his.inpatientservice.common.aop.HistoryTrackingAspect;
+import kr.co.seoulit.his.inpatientservice.common.config.TransactionConfig;
+import kr.co.seoulit.his.inpatientservice.common.exception.BusinessException;
+import kr.co.seoulit.his.inpatientservice.common.exception.ErrorCode;
+import kr.co.seoulit.his.inpatientservice.common.util.DateRules;
 import kr.co.seoulit.his.inpatientservice.nursing.dto.VitalSignDTO;
 import kr.co.seoulit.his.inpatientservice.nursing.entity.VitalSignEntity;
 import kr.co.seoulit.his.inpatientservice.nursing.entity.VitalSignHistoryEntity;
@@ -22,16 +28,16 @@ import org.springframework.context.annotation.Import;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 // 간호기록 변경이력 AOP 검증 — @TracksHistory가 실제로 적용되는지, 수정/삭제 1건에 이력이 정확히 1건 남는지
 // (예전에는 어노테이션이 인터페이스에만 있어 AOP가 적용되지 않았고, 이력은 서비스 코드가 직접 저장하고 있었음)
 @DataJpaTest(properties = "spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.H2Dialect")
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
-@Import({HistoryTrackingAspect.class, NursingHistoryAopTest.AopConfig.class,
+@Import({HistoryTrackingAspect.class, NursingHistoryAopTest.AopConfig.class, TransactionConfig.class, NursingRecordTimeValidator.class,
         VitalSignServiceImpl.class, IandORecordServiceImpl.class, NursingAssessmentServiceImpl.class,
         RestraintServiceImpl.class, RiskAssessmentServiceImpl.class,
         VitalSignMapperImpl.class, IandORecordMapperImpl.class, NursingAssessmentMapperImpl.class,
@@ -51,11 +57,13 @@ class NursingHistoryAopTest {
     @Autowired RiskAssessmentService riskAssessmentService;
     @Autowired VitalSignRepository vitalSignRepository;
     @Autowired VitalSignHistoryRepository vitalSignHistoryRepository;
+    @Autowired AdmissionRepository admissionRepository;
 
     @AfterEach
     void cleanUp() {
         vitalSignHistoryRepository.deleteAll();
         vitalSignRepository.deleteAll();
+        admissionRepository.deleteAll();
     }
 
     @Test
@@ -93,11 +101,50 @@ class NursingHistoryAopTest {
         assertThat(vitalSignRepository.findById("VS2")).isEmpty();
     }
 
+    @Test
+    void 미래_시각으로_수정하면_거절되고_AOP가_남긴_이력도_롤백된다() {
+        saveVitalSign("VS3", 36);
+        VitalSignDTO dto = vitalSignService.getVitalSign("VS3");
+        dto.setMeasuredAt(DateRules.now().plusHours(2));
+
+        assertThatThrownBy(() -> vitalSignService.updateVitalSign("VS3", dto))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode").isEqualTo(ErrorCode.NURSING_RECORD_TIME_INVALID);
+
+        assertThat(vitalSignHistoryRepository.findByVitalSignIdOrderByChangedAtDesc("VS3")).isEmpty();
+        assertThat(vitalSignRepository.findById("VS3").orElseThrow().getTemperature()).isEqualTo(36);
+    }
+
+    @Test
+    void 입원일_이전_시각이나_미래_시각으로는_기록을_등록할_수_없다() {
+        admissionRepository.save(AdmissionEntity.builder()
+                .admissionId("ADM9").patientId("P9").status("ADMITTED")
+                .admissionDate(DateRules.today().minusDays(1).atTime(15, 0)).build());
+
+        VitalSignDTO beforeAdmission = new VitalSignDTO();
+        beforeAdmission.setAdmissionId("ADM9");
+        beforeAdmission.setMeasuredAt(DateRules.today().minusDays(2).atTime(10, 0));
+        assertThatThrownBy(() -> vitalSignService.createVitalSign(beforeAdmission))
+                .extracting("errorCode").isEqualTo(ErrorCode.NURSING_RECORD_TIME_INVALID);
+
+        VitalSignDTO future = new VitalSignDTO();
+        future.setAdmissionId("ADM9");
+        future.setMeasuredAt(DateRules.now().plusDays(1));
+        assertThatThrownBy(() -> vitalSignService.createVitalSign(future))
+                .extracting("errorCode").isEqualTo(ErrorCode.NURSING_RECORD_TIME_INVALID);
+
+        // 입원 당일(입원 시각보다 이른 시각이어도 같은 날) 기록은 허용
+        VitalSignDTO admissionDay = new VitalSignDTO();
+        admissionDay.setAdmissionId("ADM9");
+        admissionDay.setMeasuredAt(DateRules.today().minusDays(1).atTime(9, 0));
+        assertThat(vitalSignService.createVitalSign(admissionDay).getVitalSignId()).isNotNull();
+    }
+
     private void saveVitalSign(String id, int temperature) {
         vitalSignRepository.save(VitalSignEntity.builder()
                 .vitalSignId(id)
                 .admissionId("ADM1")
-                .measuredAt(LocalDateTime.now())
+                .measuredAt(DateRules.now().minusHours(1))
                 .temperature(temperature)
                 .build());
     }

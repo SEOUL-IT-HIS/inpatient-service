@@ -2,6 +2,7 @@ package kr.co.seoulit.his.inpatientservice.prescription.service;
 
 import kr.co.seoulit.his.inpatientservice.common.exception.BusinessException;
 import kr.co.seoulit.his.inpatientservice.common.exception.ErrorCode;
+import kr.co.seoulit.his.inpatientservice.common.util.DateRules;
 import kr.co.seoulit.his.inpatientservice.admission.entity.AdmissionEntity;
 import kr.co.seoulit.his.inpatientservice.prescription.entity.PrescriptionEntity;
 import kr.co.seoulit.his.inpatientservice.prescription.entity.PrescriptionItemEntity;
@@ -117,7 +118,7 @@ public class PrescriptionServiceImpl implements PrescriptionService{
         prescriptionCoreClient.deactivate(prescriptionId, cancelReason, entity.getPrescribedBy());
 
         entity.setStatus(STATUS_CANCELLED);
-        entity.setCancelledAt(LocalDateTime.now());
+        entity.setCancelledAt(DateRules.now());
         entity.setCancelReason(cancelReason);
         prescriptionRepository.save(entity);
         return getPrescription(prescriptionId);
@@ -179,7 +180,7 @@ public class PrescriptionServiceImpl implements PrescriptionService{
             result = SEND_FAILED;
         }
 
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = DateRules.now();
         for (PrescriptionItemEntity item : targets) {
             item.setSendStatus(result);
             if (SEND_SENT.equals(result)) {

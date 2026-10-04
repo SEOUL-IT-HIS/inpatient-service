@@ -14,12 +14,19 @@ import kr.co.seoulit.his.inpatientservice.bed.repository.BedReservationHistoryRe
 import kr.co.seoulit.his.inpatientservice.bed.repository.BedReservationRepository;
 import kr.co.seoulit.his.inpatientservice.common.exception.BusinessException;
 import kr.co.seoulit.his.inpatientservice.common.exception.ErrorCode;
+import kr.co.seoulit.his.inpatientservice.common.util.DateRules;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 
 @Service
 public class BedReservationServiceImpl implements BedReservationService {
+    // 입원 예정일은 오늘부터 최대 30일 후까지만 예약 가능
+    static final int MAX_RESERVATION_DAYS = 30;
+
     // "예약(BedReservation)" 테이블을 다루는 repository — BED_RESERVATION 저장/조회 담당
     private final BedReservationRepository bedReservationRepository;
     // "예약(BedReservation) 이력" 테이블을 다루는 repository — BED_RESERVATION_HISTORY 저장/조회
@@ -52,6 +59,24 @@ public class BedReservationServiceImpl implements BedReservationService {
         }
     }
 
+    // [검증 전용 private 메서드] 예약 날짜 규칙
+    // - 입원 예정일: 오늘 ~ 오늘+30일 (너무 먼 예약이 병상을 오래 묶어 두지 않게)
+    // - 예약일시: 이미 한 일이라 미래 불가, 입원 예정일보다 늦을 수 없음
+    private void validateReservationDates(LocalDateTime reserveAt, LocalDateTime expectedAdmissionAt) {
+        if (reserveAt == null || expectedAdmissionAt == null) {
+            throw new BusinessException(ErrorCode.BED_RESERVATION_DATE_INVALID, "Reserved time and expected admission time are required");
+        }
+        LocalDate expectedDate = expectedAdmissionAt.toLocalDate();
+        if (expectedDate.isBefore(DateRules.today()) || expectedDate.isAfter(DateRules.today().plusDays(MAX_RESERVATION_DAYS))) {
+            throw new BusinessException(ErrorCode.BED_RESERVATION_DATE_INVALID,
+                    "Expected admission date must be between today and " + MAX_RESERVATION_DAYS + " days later");
+        }
+        if (DateRules.isFuture(reserveAt) || reserveAt.isAfter(expectedAdmissionAt)) {
+            throw new BusinessException(ErrorCode.BED_RESERVATION_DATE_INVALID,
+                    "Reserved time cannot be in the future or after the expected admission time");
+        }
+    }
+
     // [조회] 예약 전체 목록 — 그냥 읽기만, 문제없음
     @Override
     public List<BedReservationDTO> getBedReservations() {
@@ -76,6 +101,12 @@ public class BedReservationServiceImpl implements BedReservationService {
         // 2) 요청받은 값으로 필드 덮어쓰기 (메모리 상에서만, 아직 DB 반영 전)
         if (!entity.getBedId().equals(requestDto.getBedId())) {
             throw new BusinessException(ErrorCode.BED_NOT_AVAILABLE);
+        }
+        // 일정이 바뀌는 수정일 때만 날짜 검증 — 상태만 바꾸는 요청(취소 등)은 지난 예약도 처리할 수 있어야 함
+        boolean scheduleChanged = !Objects.equals(entity.getReserveAt(), requestDto.getReserveAt())
+                || !Objects.equals(entity.getExpectedAdmissionAt(), requestDto.getExpectedAdmissionAt());
+        if (scheduleChanged) {
+            validateReservationDates(requestDto.getReserveAt(), requestDto.getExpectedAdmissionAt());
         }
         entity.setBedId(requestDto.getBedId());
         entity.setPatientId(requestDto.getPatientId());
@@ -114,6 +145,7 @@ public class BedReservationServiceImpl implements BedReservationService {
     @Transactional
     @Override
     public BedReservationDTO createBedReservation(BedReservationDTO requestDto) {
+        validateReservationDates(requestDto.getReserveAt(), requestDto.getExpectedAdmissionAt());
         validateBedAvailable(requestDto.getBedId());
         if (hasActiveReservation(requestDto.getBedId())) {
             throw new BusinessException(ErrorCode.BED_RESERVATION_ALREADY_ACTIVE);
@@ -134,6 +166,7 @@ public class BedReservationServiceImpl implements BedReservationService {
             BedReservationScheduleRequest requestDto) {
         BedReservationEntity entity = bedReservationRepository.findById(bedReservationId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BED_RESERVATION_NOT_FOUND));
+        validateReservationDates(requestDto.getReserveAt(), requestDto.getExpectedAdmissionAt());
         entity.setReserveAt(requestDto.getReserveAt());
         entity.setExpectedAdmissionAt(requestDto.getExpectedAdmissionAt());
         bedReservationRepository.save(entity);

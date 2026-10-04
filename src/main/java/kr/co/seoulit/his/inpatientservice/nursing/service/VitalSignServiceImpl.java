@@ -1,5 +1,6 @@
 package kr.co.seoulit.his.inpatientservice.nursing.service;
 
+import jakarta.transaction.Transactional;
 import kr.co.seoulit.his.inpatientservice.common.aop.HistoryTrackable;
 import kr.co.seoulit.his.inpatientservice.common.aop.TracksHistory;
 import kr.co.seoulit.his.inpatientservice.nursing.dto.VitalSignDTO;
@@ -19,6 +20,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class VitalSignServiceImpl implements VitalSignService, HistoryTrackable {
     private final VitalSignRepository vitalSignRepository;
+    private final NursingRecordTimeValidator nursingRecordTimeValidator;
     private final VitalSignMapper vitalSignMapper;
     private final VitalSignHistoryRepository vitalSignHistoryRepository;
 
@@ -43,6 +45,7 @@ public class VitalSignServiceImpl implements VitalSignService, HistoryTrackable 
 
     @Override
     public VitalSignDTO createVitalSign(VitalSignDTO requestDto) {
+        nursingRecordTimeValidator.validate(requestDto.getAdmissionId(), requestDto.getMeasuredAt());
         VitalSignEntity entity = vitalSignMapper.toEntity(requestDto);
         entity.setVitalSignId(UUID.randomUUID().toString());
         VitalSignDTO savedDto = vitalSignMapper.toDto(vitalSignRepository.save(entity));
@@ -75,17 +78,24 @@ public class VitalSignServiceImpl implements VitalSignService, HistoryTrackable 
                 .build();
     }
     // 변경이력은 HistoryTrackingAspect가 실행 직전에 저장 (어노테이션은 구현 메서드에 있어야 AOP가 적용됨)
+    // @Transactional: AOP가 남기는 이력과 실제 수정을 하나로 묶음 → 검증 실패 등으로 수정이 취소되면 이력도 남지 않음
+    @Transactional
     @TracksHistory(changeType = "UPDATED")
     @Override
     public VitalSignDTO updateVitalSign(String vitalSignId,VitalSignDTO requestDto){
         return vitalSignRepository.findById(vitalSignId)
                 .map(entity ->{
+                    // 기록 시각을 보낸 경우만 검증 (비어 있으면 기존 값 유지)
+                    if (requestDto.getMeasuredAt() != null) {
+                        nursingRecordTimeValidator.validate(entity.getAdmissionId(), requestDto.getMeasuredAt());
+                    }
                     vitalSignMapper.updateEntityFromDto(entity, requestDto);
                     return vitalSignMapper.toDto(vitalSignRepository.save(entity));
 
                 })
                 .orElseThrow(() -> new RuntimeException("Vital sign not found with ID: " + vitalSignId));
     }
+    @Transactional
     @TracksHistory(changeType = "DELETED")
     @Override
     public void deleteVitalSign(String vitalSignId) {

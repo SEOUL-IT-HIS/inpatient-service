@@ -1,5 +1,6 @@
 package kr.co.seoulit.his.inpatientservice.nursing.service;
 
+import jakarta.transaction.Transactional;
 import kr.co.seoulit.his.inpatientservice.common.aop.HistoryTrackable;
 import kr.co.seoulit.his.inpatientservice.common.aop.TracksHistory;
 import kr.co.seoulit.his.inpatientservice.nursing.dto.NursingAssessmentDTO;
@@ -19,6 +20,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class NursingAssessmentServiceImpl implements NursingAssessmentService, HistoryTrackable {
     private final NursingAssessmentRepository nursingAssessmentRepository;
+    private final NursingRecordTimeValidator nursingRecordTimeValidator;
     private final NursingAssessmentMapper nursingAssessmentMapper;
     private final NursingAssessmentHistoryRepository nursingAssessmentHistoryRepository;
 
@@ -45,6 +47,7 @@ public class NursingAssessmentServiceImpl implements NursingAssessmentService, H
 
     @Override
     public NursingAssessmentDTO createNursingAssessment(NursingAssessmentDTO requestDto) {
+        nursingRecordTimeValidator.validate(requestDto.getAdmissionId(), requestDto.getAssessedAt());
         NursingAssessmentEntity entity = nursingAssessmentMapper.toEntity(requestDto);
         entity.setNursingAssessmentId(UUID.randomUUID().toString());
         NursingAssessmentDTO savedDto = nursingAssessmentMapper.toDto(nursingAssessmentRepository.save(entity));
@@ -63,16 +66,23 @@ public class NursingAssessmentServiceImpl implements NursingAssessmentService, H
 
 
     // 변경이력은 HistoryTrackingAspect가 실행 직전에 저장 (어노테이션은 구현 메서드에 있어야 AOP가 적용됨)
+    // @Transactional: AOP가 남기는 이력과 실제 수정을 하나로 묶음 → 검증 실패 등으로 수정이 취소되면 이력도 남지 않음
+    @Transactional
     @TracksHistory(changeType = "UPDATED")
     @Override
     public NursingAssessmentDTO updateNursingAssessment(String nursingAssessmentId, NursingAssessmentDTO requestDto) {
         return nursingAssessmentRepository.findById(nursingAssessmentId)
                 .map(entity -> {
+                    // 기록 시각을 보낸 경우만 검증 (비어 있으면 기존 값 유지)
+                    if (requestDto.getAssessedAt() != null) {
+                        nursingRecordTimeValidator.validate(entity.getAdmissionId(), requestDto.getAssessedAt());
+                    }
                     nursingAssessmentMapper.updateEntityFromDto(entity, requestDto);
                     return nursingAssessmentMapper.toDto(nursingAssessmentRepository.save(entity));
                 })
                 .orElseThrow(() -> new RuntimeException("Nursing assessment not found with ID: " + nursingAssessmentId));
     }
+    @Transactional
     @TracksHistory(changeType = "DELETED")
     @Override
     public void deleteNursingAssessment(String nursingAssessmentId) {

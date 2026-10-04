@@ -27,7 +27,11 @@ public enum ErrorCode {
     OUTPATIENT_SERVICE_UNAVAILABLE("Outpatient service is unavailable", HttpStatus.SERVICE_UNAVAILABLE), // 외래 서버 연결 실패/타임아웃
     DISCHARGE_ALREADY_REQUESTED("Discharge already requested for this admission", HttpStatus.CONFLICT),
     ADMISSION_ALREADY_HAS_BED("This admission already has an active bed assignment", HttpStatus.CONFLICT),
-    BED_ASSIGNED_AT_INVALID("Assigned date must be today or later", HttpStatus.BAD_REQUEST);
+    // 날짜 검증 — 기준은 common.util.DateRules (병원 시간대, 시계 오차 5분 여유)
+    BED_ASSIGNED_AT_INVALID("Assigned time must be between today 00:00 and now", HttpStatus.BAD_REQUEST),
+    BED_RELEASED_AT_INVALID("Release time must be between the assigned time and now", HttpStatus.BAD_REQUEST),
+    NURSING_RECORD_TIME_INVALID("Record time must be between the admission date and now", HttpStatus.BAD_REQUEST),
+    BED_RESERVATION_DATE_INVALID("Invalid reservation dates", HttpStatus.BAD_REQUEST);
 
     private final String message;
     private final HttpStatus status;

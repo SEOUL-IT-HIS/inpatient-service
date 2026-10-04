@@ -9,13 +9,13 @@ import kr.co.seoulit.his.inpatientservice.admission.repository.AdmissionReposito
 import kr.co.seoulit.his.inpatientservice.bed.service.BedAssignmentService;
 import kr.co.seoulit.his.inpatientservice.common.exception.BusinessException;
 import kr.co.seoulit.his.inpatientservice.common.exception.ErrorCode;
+import kr.co.seoulit.his.inpatientservice.common.util.DateRules;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
@@ -196,7 +196,7 @@ public class AdmissionServiceImpl implements AdmissionService {
         // 입원일수는 날짜(자정) 기준으로 세고, 당일 입·퇴원도 최소 1일로 청구
         // (만 24시간 기준으로 세면 하루가 안 된 입원이 0일이 되어 수납의 수량 제약(quantity > 0)에 걸려 청구가 실패함)
         long stayDays = Math.max(1,
-                ChronoUnit.DAYS.between(admission.getAdmissionDate().toLocalDate(), LocalDate.now()));
+                ChronoUnit.DAYS.between(admission.getAdmissionDate().toLocalDate(), DateRules.today()));
         return BillingChargeEvent.roomFee(admission.getPatientId(), admissionId, feeCode, stayDays);
     }
 

@@ -1,5 +1,6 @@
 package kr.co.seoulit.his.inpatientservice.nursing.service;
 
+import jakarta.transaction.Transactional;
 
 import kr.co.seoulit.his.inpatientservice.common.aop.HistoryTrackable;
 import kr.co.seoulit.his.inpatientservice.common.aop.TracksHistory;
@@ -20,6 +21,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class IandORecordServiceImpl implements IandORecordService, HistoryTrackable {
     private final IandORecordRepository iandORecordRepository;
+    private final NursingRecordTimeValidator nursingRecordTimeValidator;
     private final IandORecordMapper iandORecordMapper;
     private final IandORecordHistoryRepository iandORecordHistoryRepository;
 
@@ -47,6 +49,7 @@ public class IandORecordServiceImpl implements IandORecordService, HistoryTracka
 
     @Override
     public IandORecordDTO createIandORecord(IandORecordDTO requestDto) {
+        nursingRecordTimeValidator.validate(requestDto.getAdmissionId(), requestDto.getRecordedAt());
         IandORecordEntity entity = iandORecordMapper.toEntity(requestDto);
         entity.setIntakeOutputId(UUID.randomUUID().toString());
         IandORecordDTO savedDto = iandORecordMapper.toDto(iandORecordRepository.save(entity));
@@ -65,17 +68,24 @@ public class IandORecordServiceImpl implements IandORecordService, HistoryTracka
 
 
     // 변경이력은 HistoryTrackingAspect가 실행 직전에 저장 (어노테이션은 구현 메서드에 있어야 AOP가 적용됨)
+    // @Transactional: AOP가 남기는 이력과 실제 수정을 하나로 묶음 → 검증 실패 등으로 수정이 취소되면 이력도 남지 않음
+    @Transactional
     @TracksHistory(changeType = "UPDATED")
     @Override
     public IandORecordDTO updateIandORecord(String iandORecordId, IandORecordDTO requestDto) {
         return iandORecordRepository.findById(iandORecordId)
                 .map(entity -> {
+                    // 기록 시각을 보낸 경우만 검증 (비어 있으면 기존 값 유지)
+                    if (requestDto.getRecordedAt() != null) {
+                        nursingRecordTimeValidator.validate(entity.getAdmissionId(), requestDto.getRecordedAt());
+                    }
                     iandORecordMapper.updateEntityFromDto(entity, requestDto);
                     return iandORecordMapper.toDto(iandORecordRepository.save(entity));
 
                 })
                 .orElseThrow(() -> new RuntimeException("I and O record not found with ID: " + iandORecordId));
     }
+    @Transactional
     @TracksHistory(changeType = "DELETED")
     @Override
     public void deleteIandORecord(String iandORecordId) {
