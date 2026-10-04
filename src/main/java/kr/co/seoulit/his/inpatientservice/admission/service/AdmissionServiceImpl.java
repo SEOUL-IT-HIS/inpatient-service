@@ -4,6 +4,7 @@ import jakarta.transaction.Transactional;
 import kr.co.seoulit.his.inpatientservice.admission.dto.AdmissionDTO;
 import kr.co.seoulit.his.inpatientservice.admission.entity.AdmissionEntity;
 import kr.co.seoulit.his.inpatientservice.admission.event.BillingChargeEvent;
+import kr.co.seoulit.his.inpatientservice.admission.event.AdmissionRequestedEvent;
 import kr.co.seoulit.his.inpatientservice.admission.mapper.AdmissionMapper;
 import kr.co.seoulit.his.inpatientservice.admission.repository.AdmissionRepository;
 import kr.co.seoulit.his.inpatientservice.bed.service.BedAssignmentService;
@@ -16,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
@@ -67,10 +69,25 @@ public class AdmissionServiceImpl implements AdmissionService {
 
     @Override
     public AdmissionDTO createAdmission(AdmissionDTO requestDto) {
-        validateNoActiveAdmission(requestDto.getPatientId());
+        validateAdmissionDate(requestDto.getAdmissionDate());
+        validateNoActiveAdmission(requestDto.getPatientId(), null);
         AdmissionEntity entity = admissionMapper.toEntity(requestDto);
         entity.setAdmissionId(generateNextAdmissionId());
+        // 비어 있으면 기본값 — 상태가 없으면 진행중 입원으로 안 보이고, 입원일이 없으면 퇴원신청 때 입원일수 계산이 실패함
+        if (entity.getStatus() == null || entity.getStatus().isBlank()) {
+            entity.setStatus(AdmissionRequestedEvent.INITIAL_STATUS);
+        }
+        if (entity.getAdmissionDate() == null) {
+            entity.setAdmissionDate(DateRules.now());
+        }
         return admissionMapper.toDto(admissionRepository.save(entity));
+    }
+
+    // 입원일은 미래일 수 없음 (시계 오차 5분 여유) — 비어 있으면 등록 시 지금으로 채우므로 여기선 통과
+    private void validateAdmissionDate(LocalDateTime admissionDate) {
+        if (admissionDate != null && DateRules.isFuture(admissionDate)) {
+            throw new BusinessException(ErrorCode.ADMISSION_DATE_INVALID);
+        }
     }
 
     // "A001", "A002" ... 형식과 이어지도록 현재 최대 번호 다음 값을 생성
@@ -83,8 +100,9 @@ public class AdmissionServiceImpl implements AdmissionService {
                 .orElse(0);
         return String.format("A%03d", maxSeq + 1);
     }
-    private void validateNoActiveAdmission(String patientId) {
-        if (admissionRepository.existsByPatientIdAndStatusNot(patientId, "DISCHARGED")) {
+    // excludeAdmissionId: 수정할 때 자기 자신은 빼고 확인 (등록일 때는 null)
+    private void validateNoActiveAdmission(String patientId, String excludeAdmissionId) {
+        if (admissionRepository.existsActiveAdmission(patientId, excludeAdmissionId)) {
             throw new BusinessException(ErrorCode.ADMISSION_ALREADY_ACTIVE);
         }
     }
@@ -118,9 +136,23 @@ public class AdmissionServiceImpl implements AdmissionService {
         AdmissionEntity entity = admissionRepository.findById(admissionId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.ADMISSION_NOT_FOUND));
 
-        entity.setPatientId(requestDto.getPatientId());
-        entity.setAdmissionDate(requestDto.getAdmissionDate());
-        entity.setStatus(requestDto.getStatus());
+        // 빈 값은 기존 값 유지 (상태를 비우면 진행중 입원으로 안 보여 중복 검사를 피해 감)
+        String patientId = requestDto.getPatientId() != null ? requestDto.getPatientId() : entity.getPatientId();
+        String status = requestDto.getStatus() != null && !requestDto.getStatus().isBlank()
+                ? requestDto.getStatus() : entity.getStatus();
+        LocalDateTime admissionDate = requestDto.getAdmissionDate() != null
+                ? requestDto.getAdmissionDate() : entity.getAdmissionDate();
+
+        validateAdmissionDate(admissionDate);
+        // 수정 결과가 "진행중 입원"이면 같은 환자의 다른 진행중 입원이 없는지 다시 확인
+        // (환자를 바꾸거나, 퇴원 건을 다시 활성 상태로 되돌려 중복을 만드는 우회 방지)
+        if (!"DISCHARGED".equals(status)) {
+            validateNoActiveAdmission(patientId, admissionId);
+        }
+
+        entity.setPatientId(patientId);
+        entity.setAdmissionDate(admissionDate);
+        entity.setStatus(status);
         return admissionMapper.toDto(admissionRepository.save(entity));
     }
 
