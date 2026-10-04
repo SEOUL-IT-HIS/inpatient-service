@@ -20,7 +20,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 
 @Service
@@ -84,6 +86,8 @@ public class BedAssignmentServiceImpl implements BedAssignmentService {
     @Transactional
     @Override
     public BedAssignmentDTO createBedAssignment(BedAssignmentDTO requestDto) {
+        // -1) 배정일시는 오늘 이후만 허용 (화면 입력 제한과 별개로 API 직접 호출도 막음)
+        validateAssignedAt(requestDto.getAssignedAt());
         // 0) 이 입원 건이 이미 다른 병상에 활성 배정돼 있는지 확인 (한 입원 건은 병상 1개만 가져야 함)
         if (!bedAssignmentRepository.findByAdmissionIdAndReleasedAtIsNull(requestDto.getAdmissionId()).isEmpty()) {
             throw new BusinessException(ErrorCode.ADMISSION_ALREADY_HAS_BED);
@@ -211,6 +215,17 @@ public class BedAssignmentServiceImpl implements BedAssignmentService {
         BedEntity bed = bedRepository.findById(assignments.get(0).getBedId())
                 .orElseThrow(()->new BusinessException(ErrorCode.BED_NOT_FOUND));
         return bed.getRoomTypeCode();
+    }
+
+    // [검증 전용 private 메서드] 새 배정의 배정일시가 비어 있거나 오늘 이전이면 거절
+    // - 날짜(일) 기준: 오늘 아침에 배정한 것을 지금 입력하는 경우는 허용
+    // - 서버 컨테이너 시간대가 UTC라 LocalDate.now()를 그대로 쓰면 새벽(KST 00~09시)에 "오늘"이 하루 밀림 → 병원 기준(Asia/Seoul)으로 계산
+    // - create에서만 씀 (update는 퇴상 처리 때 기존 과거 배정일시가 그대로 오므로 검증하면 안 됨)
+    private void validateAssignedAt(LocalDateTime assignedAt) {
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
+        if (assignedAt == null || assignedAt.toLocalDate().isBefore(today)) {
+            throw new BusinessException(ErrorCode.BED_ASSIGNED_AT_INVALID);
+        }
     }
 
     // [검증 전용 private 메서드] "이 병상, 지금 새로 배정해도 되는 상태냐?"만 확인

@@ -26,7 +26,8 @@ public enum ErrorCode {
     OUTPATIENT_SERVICE_ERROR("Outpatient service error", HttpStatus.BAD_GATEWAY), // 외래가 5xx 응답 or 응답이 비어 있음
     OUTPATIENT_SERVICE_UNAVAILABLE("Outpatient service is unavailable", HttpStatus.SERVICE_UNAVAILABLE), // 외래 서버 연결 실패/타임아웃
     DISCHARGE_ALREADY_REQUESTED("Discharge already requested for this admission", HttpStatus.CONFLICT),
-    ADMISSION_ALREADY_HAS_BED("This admission already has an active bed assignment", HttpStatus.CONFLICT);
+    ADMISSION_ALREADY_HAS_BED("This admission already has an active bed assignment", HttpStatus.CONFLICT),
+    BED_ASSIGNED_AT_INVALID("Assigned date must be today or later", HttpStatus.BAD_REQUEST);
 
     private final String message;
     private final HttpStatus status;
