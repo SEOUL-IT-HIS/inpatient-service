@@ -23,10 +23,14 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 
 @Service
 
 public class BedAssignmentServiceImpl implements BedAssignmentService {
+    // 격리 환자에게 허용하는 병실 유형 (admin ROOM_TYPE_CD): 01 1인실, 03 격리실, 04 특실
+    private static final Set<String> ISOLATION_ALLOWED_ROOM_TYPES = Set.of("01", "03", "04");
+
     // "배정(BedAssignment)" 테이블을 다루는 repository — BED_ASSIGNMENT 저장/조회 담당
     private final BedAssignmentRepository bedAssignmentRepository;
     // Entity(DB용 객체) <-> DTO(API 응답용 객체) 서로 변환해주는 도구
@@ -93,6 +97,8 @@ public class BedAssignmentServiceImpl implements BedAssignmentService {
         }
         // 1) 먼저 이 병상이 "배정 가능한 상태"인지 검증 (이미 다른 사람이 쓰고 있으면 예외 던지고 여기서 끝)
         validateBedAvailable(requestDto.getBedId());
+        // 1.5) 격리가 필요한 입원 건이면 1인실 · 격리실 · 특실만 허용 (다른 환자와 같은 방 사용 불가)
+        validateIsolationRoom(requestDto.getAdmissionId(), requestDto.getBedId());
         // 2) 요청받은 DTO를 DB에 저장할 Entity로 변환
         BedAssignmentEntity entity = bedAssignmentMapper.toEntity(requestDto);
         // 3) 배정 Entity를 DB에 저장 (BED_ASSIGNMENT 테이블에 INSERT)
@@ -150,6 +156,7 @@ public class BedAssignmentServiceImpl implements BedAssignmentService {
         if (bedChanged) {
             // 옮겨갈 새 병상이 실제로 배정 가능한 상태인지 검증
             validateBedAvailable(requestDto.getBedId());
+            validateIsolationRoom(entity.getAdmissionId(), requestDto.getBedId());
         }
 
         // 1.7) 퇴상 처리(releasedAt 있음)면 퇴상일시가 배정일시 이후 · 지금 이전인지 확인
@@ -236,6 +243,22 @@ public class BedAssignmentServiceImpl implements BedAssignmentService {
         boolean beforeAssigned = assignedAt != null && releasedAt.isBefore(assignedAt);
         if (beforeAssigned || DateRules.isFuture(releasedAt)) {
             throw new BusinessException(ErrorCode.BED_RELEASED_AT_INVALID);
+        }
+    }
+
+    // [검증 전용 private 메서드] 격리가 필요한 입원 건(isolationYn = Y)은 다른 환자와 같은 방을 쓸 수 없으므로
+    // 1인실(01) · 격리실(03) · 특실(04) 병상만 허용 — 다인실(02)이면 거절
+    // (화면 안내 문구만으로는 다인실 배정을 막지 못해 실제로 격리 환자가 4인실에 배정된 적이 있음)
+    private void validateIsolationRoom(String admissionId, String bedId) {
+        AdmissionEntity admission = admissionRepository.findById(admissionId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.ADMISSION_NOT_FOUND));
+        if (!"Y".equals(admission.getIsolationYn())) {
+            return;
+        }
+        BedEntity bed = bedRepository.findById(bedId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.BED_NOT_FOUND));
+        if (!ISOLATION_ALLOWED_ROOM_TYPES.contains(bed.getRoomTypeCode())) {
+            throw new BusinessException(ErrorCode.ISOLATION_ROOM_REQUIRED);
         }
     }
 

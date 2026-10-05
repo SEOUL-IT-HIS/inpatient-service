@@ -32,7 +32,8 @@ public enum ErrorCode {
     BED_RELEASED_AT_INVALID("Release time must be between the assigned time and now", HttpStatus.BAD_REQUEST),
     NURSING_RECORD_TIME_INVALID("Record time must be between the admission date and now", HttpStatus.BAD_REQUEST),
     BED_RESERVATION_DATE_INVALID("Invalid reservation dates", HttpStatus.BAD_REQUEST),
-    ADMISSION_DATE_INVALID("Admission date cannot be in the future", HttpStatus.BAD_REQUEST);
+    ADMISSION_DATE_INVALID("Admission date cannot be in the future", HttpStatus.BAD_REQUEST),
+    ISOLATION_ROOM_REQUIRED("Isolation patients can only be assigned to a private, isolation, or VIP room", HttpStatus.CONFLICT);
 
     private final String message;
     private final HttpStatus status;
