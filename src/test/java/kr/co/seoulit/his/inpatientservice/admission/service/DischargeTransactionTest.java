@@ -69,6 +69,7 @@ class DischargeTransactionTest {
         admissionService.changeStatus("ADM001", "DISCHARGED");
 
         assertThat(admissionRepository.findById("ADM001").orElseThrow().getStatus()).isEqualTo("DISCHARGED");
+        assertThat(admissionRepository.findById("ADM001").orElseThrow().getDischargedAt()).isNotNull(); // 퇴원 확정 시각 기록
         assertThat(bedAssignmentRepository.findById(assignmentId).orElseThrow().getReleasedAt()).isNotNull();
         assertThat(bedRepository.findById("BED001").orElseThrow().getBedStatus()).isEqualTo(BedStatus.EMPTY);
     }
@@ -83,6 +84,7 @@ class DischargeTransactionTest {
                 .isInstanceOf(BusinessException.class);
 
         assertThat(admissionRepository.findById("ADM002").orElseThrow().getStatus()).isEqualTo("DISCHARGE_REQUESTED");
+        assertThat(admissionRepository.findById("ADM002").orElseThrow().getDischargedAt()).isNull(); // 롤백되면 퇴원일도 안 남음
         assertThat(bedAssignmentRepository.findById(assignmentId).orElseThrow().getReleasedAt()).isNull();
     }
 

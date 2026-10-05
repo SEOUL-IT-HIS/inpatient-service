@@ -14,6 +14,7 @@ public class AdmissionDTO {
     private String patientId;
     private String doctorId;
     private LocalDateTime admissionDate;
+    private LocalDateTime dischargedAt;   // 퇴원 확정 시각 — 정산 완료로 DISCHARGED가 될 때 기록 (퇴원 전이면 null)
     private String admissionRoute;
     private String admissionDeptId;
     private String status;

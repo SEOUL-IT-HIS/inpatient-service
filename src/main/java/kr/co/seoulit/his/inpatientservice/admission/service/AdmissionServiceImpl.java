@@ -156,6 +156,12 @@ public class AdmissionServiceImpl implements AdmissionService {
         entity.setPatientId(patientId);
         entity.setAdmissionDate(admissionDate);
         entity.setStatus(status);
+        // 퇴원 확정 시각: 수정으로 퇴원 처리되면 지금 시각, 퇴원이 아니게 되면 비움
+        if (!"DISCHARGED".equals(status)) {
+            entity.setDischargedAt(null);
+        } else if (entity.getDischargedAt() == null) {
+            entity.setDischargedAt(DateRules.now());
+        }
         return admissionMapper.toDto(admissionRepository.save(entity));
     }
 
@@ -179,6 +185,10 @@ public class AdmissionServiceImpl implements AdmissionService {
         }
 
         entity.setStatus(status);
+        // 퇴원 확정 시각 기록 — 입퇴원 목록에서 "최근 7일 퇴원"을 거르는 기준
+        if ("DISCHARGED".equals(status)) {
+            entity.setDischargedAt(DateRules.now());
+        }
         AdmissionEntity updated = admissionRepository.save(entity);
 
         if ("DISCHARGED".equals(status)) {
