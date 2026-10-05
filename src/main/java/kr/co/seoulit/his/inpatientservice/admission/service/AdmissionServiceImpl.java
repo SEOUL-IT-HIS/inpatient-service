@@ -24,12 +24,15 @@ import java.util.Map;
 
 @Service
 public class AdmissionServiceImpl implements AdmissionService {
-    // 병실 타입(roomTypeCode) -> 수납 수가코드 매핑. billing_master에 이미 등록된 코드(FEE011/012).
-    // ROOM_TYPE_CD 그룹(52f3d558-c70b-47c3-a4d9-982b64d37de8): 01=1인실, 02=다인실, 03=격리실(USE_YN=N, 비활성이라 매핑 제외)
-    // "일반병실"(FEE009)은 공통코드에 별도 구분이 없어 수납팀에 요청해 fee 목록에서 제외함 — 병동은 1인실/다인실 2종만 청구
+    // 병실 타입(roomTypeCode) -> 수납 수가코드 매핑. billing_master에 등록된 코드(FEE011/012/013).
+    // ROOM_TYPE_CD 그룹(52f3d558-c70b-47c3-a4d9-982b64d37de8): 01=Private Room(1인실), 02=Multi-bed Room(다인실),
+    // 03=Isolation Room(격리실), 04=VIP Room(특실)
+    // - 03 격리실은 공통코드는 사용중이지만 수가코드가 아직 없어 매핑 제외 → 격리실 병상으로 퇴원신청하면 ROOM_TYPE_FEE_CODE_NOT_MAPPED
+    // "일반병실"(FEE009)은 공통코드에 별도 구분이 없어 수납팀에 요청해 fee 목록에서 제외함
     private static final Map<String, String> ROOM_TYPE_FEE_CODE_MAP = Map.of(
-            "01", "FEE011", // 1인실
-            "02", "FEE012"  // 다인실
+            "01", "FEE011", // 1인실 (비급여, 200,000원)
+            "02", "FEE012", // 다인실 (급여, 50,000원)
+            "04", "FEE013"  // 특실 VIP (비급여, 500,000원)
     );
 
     private final AdmissionRepository admissionRepository;

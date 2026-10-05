@@ -11,7 +11,9 @@ import kr.co.seoulit.his.inpatientservice.bed.repository.BedAssignmentRepository
 import kr.co.seoulit.his.inpatientservice.bed.repository.BedRepository;
 import kr.co.seoulit.his.inpatientservice.bed.service.BedAssignmentServiceImpl;
 import kr.co.seoulit.his.inpatientservice.bed.service.BedReservationService;
+import kr.co.seoulit.his.inpatientservice.admission.event.BillingChargeEvent;
 import kr.co.seoulit.his.inpatientservice.common.exception.BusinessException;
+import kr.co.seoulit.his.inpatientservice.common.exception.ErrorCode;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,6 +29,7 @@ import java.time.LocalDateTime;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -106,6 +109,29 @@ class DischargeTransactionTest {
         verify(kafkaTemplate, never()).send(any(String.class), any(), any());
     }
 
+    @Test
+    void 특실_병상_환자가_퇴원신청하면_특실_수가코드로_청구된다() {
+        saveAdmission("ADM005", "ADMITTED");
+        saveBed("BED005", BedStatus.OCCUPIED, "04");
+        saveActiveAssignment("BED005", "ADM005");
+
+        admissionService.changeStatus("ADM005", "DISCHARGE_REQUESTED");
+
+        verify(kafkaTemplate).send(any(String.class), eq("ADM005"),
+                argThat(event -> event instanceof BillingChargeEvent e && "FEE013".equals(e.feeCode())));
+    }
+
+    @Test
+    void 수가코드가_없는_격리실_병상은_퇴원신청을_거절한다() {
+        saveAdmission("ADM006", "ADMITTED");
+        saveBed("BED006", BedStatus.OCCUPIED, "03");
+        saveActiveAssignment("BED006", "ADM006");
+
+        assertThatThrownBy(() -> admissionService.changeStatus("ADM006", "DISCHARGE_REQUESTED"))
+                .extracting("errorCode").isEqualTo(ErrorCode.ROOM_TYPE_FEE_CODE_NOT_MAPPED);
+        assertThat(admissionRepository.findById("ADM006").orElseThrow().getStatus()).isEqualTo("ADMITTED");
+    }
+
     private void saveAdmission(String admissionId, String status) {
         admissionRepository.save(AdmissionEntity.builder()
                 .admissionId(admissionId)
@@ -116,12 +142,16 @@ class DischargeTransactionTest {
     }
 
     private void saveBed(String bedId, BedStatus status) {
+        saveBed(bedId, status, "01");
+    }
+
+    private void saveBed(String bedId, BedStatus status, String roomTypeCode) {
         bedRepository.save(BedEntity.builder()
                 .bedId(bedId)
                 .roomNo("101")
                 .bedNo("1")
                 .bedStatus(status)
-                .roomTypeCode("01")
+                .roomTypeCode(roomTypeCode)
                 .build());
     }
 
