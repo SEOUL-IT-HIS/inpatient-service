@@ -22,7 +22,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class RiskAssessmentServiceImpl implements RiskAssessmentService, HistoryTrackable {
     private final RiskAssessmentRepository riskAssessmentRepository;
-    private final NursingRecordTimeValidator nursingRecordTimeValidator;
+    private final NursingRecordValidator nursingRecordValidator;
     private final RiskAssessmentMapper riskAssessmentMapper;
     private final RiskAssessmentHistoryRepository riskAssessmentHistoryRepository;
 
@@ -50,7 +50,8 @@ public class RiskAssessmentServiceImpl implements RiskAssessmentService, History
 
     @Override
     public RiskAssessmentDTO createRiskAssessment(RiskAssessmentDTO requestDto) {
-        nursingRecordTimeValidator.validate(requestDto.getAdmissionId(), requestDto.getAssessedAt());
+        nursingRecordValidator.validateWritable(requestDto.getAdmissionId());
+        nursingRecordValidator.validateRecordTime(requestDto.getAdmissionId(), requestDto.getAssessedAt());
         RiskAssessmentEntity entity = riskAssessmentMapper.toEntity(requestDto);
         entity.setPatientRiskAssessmentId(UUID.randomUUID().toString());
         RiskAssessmentDTO savedDto = riskAssessmentMapper.toDto(riskAssessmentRepository.save(entity));
@@ -76,9 +77,10 @@ public class RiskAssessmentServiceImpl implements RiskAssessmentService, History
     public RiskAssessmentDTO updateRiskAssessment(String riskAssessmentId, RiskAssessmentDTO requestDto) {
         return riskAssessmentRepository.findById(riskAssessmentId)
                 .map(entity -> {
+                    nursingRecordValidator.validateWritable(entity.getAdmissionId());
                     // 기록 시각을 보낸 경우만 검증 (비어 있으면 기존 값 유지)
                     if (requestDto.getAssessedAt() != null) {
-                        nursingRecordTimeValidator.validate(entity.getAdmissionId(), requestDto.getAssessedAt());
+                        nursingRecordValidator.validateRecordTime(entity.getAdmissionId(), requestDto.getAssessedAt());
                     }
                     riskAssessmentMapper.updateEntityFromDto(entity, requestDto);
                     return riskAssessmentMapper.toDto(riskAssessmentRepository.save(entity));
@@ -93,6 +95,7 @@ public class RiskAssessmentServiceImpl implements RiskAssessmentService, History
         // Implementation for deleting a specific risk assessment
         RiskAssessmentEntity entity = riskAssessmentRepository.findById(riskAssessmentId)
                 .orElseThrow(()->new RuntimeException("Risk assessment not found with ID: " + riskAssessmentId));
+        nursingRecordValidator.validateWritable(entity.getAdmissionId());
         riskAssessmentRepository.delete(entity);
     }
 

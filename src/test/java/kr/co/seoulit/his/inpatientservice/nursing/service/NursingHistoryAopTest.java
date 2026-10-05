@@ -37,7 +37,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 // (예전에는 어노테이션이 인터페이스에만 있어 AOP가 적용되지 않았고, 이력은 서비스 코드가 직접 저장하고 있었음)
 @DataJpaTest(properties = "spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.H2Dialect")
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
-@Import({HistoryTrackingAspect.class, NursingHistoryAopTest.AopConfig.class, TransactionConfig.class, NursingRecordTimeValidator.class,
+@Import({HistoryTrackingAspect.class, NursingHistoryAopTest.AopConfig.class, TransactionConfig.class, NursingRecordValidator.class,
         VitalSignServiceImpl.class, IandORecordServiceImpl.class, NursingAssessmentServiceImpl.class,
         RestraintServiceImpl.class, RiskAssessmentServiceImpl.class,
         VitalSignMapperImpl.class, IandORecordMapperImpl.class, NursingAssessmentMapperImpl.class,
@@ -138,6 +138,48 @@ class NursingHistoryAopTest {
         admissionDay.setAdmissionId("ADM9");
         admissionDay.setMeasuredAt(DateRules.today().minusDays(1).atTime(9, 0));
         assertThat(vitalSignService.createVitalSign(admissionDay).getVitalSignId()).isNotNull();
+    }
+
+    @Test
+    void 퇴원_완료된_입원_건의_간호기록은_등록_수정_삭제할_수_없고_이력도_남지_않는다() {
+        saveAdmission("ADM-D", "DISCHARGED");
+        vitalSignRepository.save(VitalSignEntity.builder().vitalSignId("VS-D").admissionId("ADM-D")
+                .measuredAt(DateRules.now().minusDays(1)).temperature(37).build());
+
+        VitalSignDTO create = new VitalSignDTO();
+        create.setAdmissionId("ADM-D");
+        create.setMeasuredAt(DateRules.now().minusHours(1));
+        assertThatThrownBy(() -> vitalSignService.createVitalSign(create))
+                .extracting("errorCode").isEqualTo(ErrorCode.ADMISSION_ALREADY_DISCHARGED);
+
+        VitalSignDTO update = vitalSignService.getVitalSign("VS-D");
+        update.setTemperature(39);
+        assertThatThrownBy(() -> vitalSignService.updateVitalSign("VS-D", update))
+                .extracting("errorCode").isEqualTo(ErrorCode.ADMISSION_ALREADY_DISCHARGED);
+
+        assertThatThrownBy(() -> vitalSignService.deleteVitalSign("VS-D"))
+                .extracting("errorCode").isEqualTo(ErrorCode.ADMISSION_ALREADY_DISCHARGED);
+
+        // 기록은 그대로, AOP가 남긴 이력도 롤백됨
+        assertThat(vitalSignRepository.findById("VS-D").orElseThrow().getTemperature()).isEqualTo(37);
+        assertThat(vitalSignHistoryRepository.findByVitalSignIdOrderByChangedAtDesc("VS-D")).isEmpty();
+    }
+
+    @Test
+    void 퇴원신청_상태는_아직_병동에_있으므로_간호기록을_계속_작성할_수_있다() {
+        saveAdmission("ADM-R", "DISCHARGE_REQUESTED");
+
+        VitalSignDTO create = new VitalSignDTO();
+        create.setAdmissionId("ADM-R");
+        create.setMeasuredAt(DateRules.now().minusMinutes(10));
+
+        assertThat(vitalSignService.createVitalSign(create).getVitalSignId()).isNotNull();
+    }
+
+    private void saveAdmission(String admissionId, String status) {
+        admissionRepository.save(AdmissionEntity.builder()
+                .admissionId(admissionId).patientId("P-" + admissionId).status(status)
+                .admissionDate(DateRules.now().minusDays(3)).build());
     }
 
     private void saveVitalSign(String id, int temperature) {

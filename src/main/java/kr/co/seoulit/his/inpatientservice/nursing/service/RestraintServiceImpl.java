@@ -20,7 +20,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class RestraintServiceImpl implements RestraintService, HistoryTrackable {
     private final RestraintRepository restraintRepository;
-    private final NursingRecordTimeValidator nursingRecordTimeValidator;
+    private final NursingRecordValidator nursingRecordValidator;
     private final RestraintMapper restraintMapper;
     private final RestraintHistoryRepository restraintHistoryRepository;
 
@@ -48,7 +48,8 @@ public class RestraintServiceImpl implements RestraintService, HistoryTrackable 
 
     @Override
     public RestraintDTO createRestraint(RestraintDTO requestDto) {
-        nursingRecordTimeValidator.validate(requestDto.getAdmissionId(), requestDto.getAppliedAt());
+        nursingRecordValidator.validateWritable(requestDto.getAdmissionId());
+        nursingRecordValidator.validateRecordTime(requestDto.getAdmissionId(), requestDto.getAppliedAt());
         RestraintEntity entity = restraintMapper.toEntity(requestDto);
         entity.setRestraintId(UUID.randomUUID().toString());
         RestraintDTO savedDto = restraintMapper.toDto(restraintRepository.save(entity));
@@ -74,9 +75,10 @@ public class RestraintServiceImpl implements RestraintService, HistoryTrackable 
     public RestraintDTO updateRestraint(String restraintId, RestraintDTO requestDto) {
         return restraintRepository.findById(restraintId)
                 .map(entity -> {
+                    nursingRecordValidator.validateWritable(entity.getAdmissionId());
                     // 기록 시각을 보낸 경우만 검증 (비어 있으면 기존 값 유지)
                     if (requestDto.getAppliedAt() != null) {
-                        nursingRecordTimeValidator.validate(entity.getAdmissionId(), requestDto.getAppliedAt());
+                        nursingRecordValidator.validateRecordTime(entity.getAdmissionId(), requestDto.getAppliedAt());
                     }
                     restraintMapper.updateEntityFromDto(entity, requestDto);
                     return restraintMapper.toDto(restraintRepository.save(entity));
@@ -91,6 +93,7 @@ public class RestraintServiceImpl implements RestraintService, HistoryTrackable 
         // Implementation for deleting a specific restraint
         RestraintEntity entity = restraintRepository.findById(restraintId)
                 .orElseThrow(()->new RuntimeException("Restraint not found with ID: " + restraintId));
+        nursingRecordValidator.validateWritable(entity.getAdmissionId());
         restraintRepository.delete(entity);
     }
 

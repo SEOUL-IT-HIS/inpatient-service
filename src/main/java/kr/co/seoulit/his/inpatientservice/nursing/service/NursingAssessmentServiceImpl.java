@@ -20,7 +20,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class NursingAssessmentServiceImpl implements NursingAssessmentService, HistoryTrackable {
     private final NursingAssessmentRepository nursingAssessmentRepository;
-    private final NursingRecordTimeValidator nursingRecordTimeValidator;
+    private final NursingRecordValidator nursingRecordValidator;
     private final NursingAssessmentMapper nursingAssessmentMapper;
     private final NursingAssessmentHistoryRepository nursingAssessmentHistoryRepository;
 
@@ -47,7 +47,8 @@ public class NursingAssessmentServiceImpl implements NursingAssessmentService, H
 
     @Override
     public NursingAssessmentDTO createNursingAssessment(NursingAssessmentDTO requestDto) {
-        nursingRecordTimeValidator.validate(requestDto.getAdmissionId(), requestDto.getAssessedAt());
+        nursingRecordValidator.validateWritable(requestDto.getAdmissionId());
+        nursingRecordValidator.validateRecordTime(requestDto.getAdmissionId(), requestDto.getAssessedAt());
         NursingAssessmentEntity entity = nursingAssessmentMapper.toEntity(requestDto);
         entity.setNursingAssessmentId(UUID.randomUUID().toString());
         NursingAssessmentDTO savedDto = nursingAssessmentMapper.toDto(nursingAssessmentRepository.save(entity));
@@ -73,9 +74,10 @@ public class NursingAssessmentServiceImpl implements NursingAssessmentService, H
     public NursingAssessmentDTO updateNursingAssessment(String nursingAssessmentId, NursingAssessmentDTO requestDto) {
         return nursingAssessmentRepository.findById(nursingAssessmentId)
                 .map(entity -> {
+                    nursingRecordValidator.validateWritable(entity.getAdmissionId());
                     // 기록 시각을 보낸 경우만 검증 (비어 있으면 기존 값 유지)
                     if (requestDto.getAssessedAt() != null) {
-                        nursingRecordTimeValidator.validate(entity.getAdmissionId(), requestDto.getAssessedAt());
+                        nursingRecordValidator.validateRecordTime(entity.getAdmissionId(), requestDto.getAssessedAt());
                     }
                     nursingAssessmentMapper.updateEntityFromDto(entity, requestDto);
                     return nursingAssessmentMapper.toDto(nursingAssessmentRepository.save(entity));
@@ -89,6 +91,7 @@ public class NursingAssessmentServiceImpl implements NursingAssessmentService, H
         // Implementation for deleting a specific nursing assessment
         NursingAssessmentEntity entity = nursingAssessmentRepository.findById(nursingAssessmentId)
                 .orElseThrow(()->new RuntimeException("Nursing assessment not found with ID: " + nursingAssessmentId));
+        nursingRecordValidator.validateWritable(entity.getAdmissionId());
         nursingAssessmentRepository.delete(entity);
     }
 

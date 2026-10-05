@@ -20,7 +20,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class VitalSignServiceImpl implements VitalSignService, HistoryTrackable {
     private final VitalSignRepository vitalSignRepository;
-    private final NursingRecordTimeValidator nursingRecordTimeValidator;
+    private final NursingRecordValidator nursingRecordValidator;
     private final VitalSignMapper vitalSignMapper;
     private final VitalSignHistoryRepository vitalSignHistoryRepository;
 
@@ -45,7 +45,8 @@ public class VitalSignServiceImpl implements VitalSignService, HistoryTrackable 
 
     @Override
     public VitalSignDTO createVitalSign(VitalSignDTO requestDto) {
-        nursingRecordTimeValidator.validate(requestDto.getAdmissionId(), requestDto.getMeasuredAt());
+        nursingRecordValidator.validateWritable(requestDto.getAdmissionId());
+        nursingRecordValidator.validateRecordTime(requestDto.getAdmissionId(), requestDto.getMeasuredAt());
         VitalSignEntity entity = vitalSignMapper.toEntity(requestDto);
         entity.setVitalSignId(UUID.randomUUID().toString());
         VitalSignDTO savedDto = vitalSignMapper.toDto(vitalSignRepository.save(entity));
@@ -85,9 +86,10 @@ public class VitalSignServiceImpl implements VitalSignService, HistoryTrackable 
     public VitalSignDTO updateVitalSign(String vitalSignId,VitalSignDTO requestDto){
         return vitalSignRepository.findById(vitalSignId)
                 .map(entity ->{
+                    nursingRecordValidator.validateWritable(entity.getAdmissionId());
                     // 기록 시각을 보낸 경우만 검증 (비어 있으면 기존 값 유지)
                     if (requestDto.getMeasuredAt() != null) {
-                        nursingRecordTimeValidator.validate(entity.getAdmissionId(), requestDto.getMeasuredAt());
+                        nursingRecordValidator.validateRecordTime(entity.getAdmissionId(), requestDto.getMeasuredAt());
                     }
                     vitalSignMapper.updateEntityFromDto(entity, requestDto);
                     return vitalSignMapper.toDto(vitalSignRepository.save(entity));
@@ -102,6 +104,7 @@ public class VitalSignServiceImpl implements VitalSignService, HistoryTrackable 
         // Implementation for deleting a specific vital sign
         VitalSignEntity entity = vitalSignRepository.findById(vitalSignId)
                 .orElseThrow(()->new RuntimeException("Vital sign not found with ID: " + vitalSignId));
+        nursingRecordValidator.validateWritable(entity.getAdmissionId());
         vitalSignRepository.deleteById(vitalSignId);
     }
 }

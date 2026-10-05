@@ -21,7 +21,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class IandORecordServiceImpl implements IandORecordService, HistoryTrackable {
     private final IandORecordRepository iandORecordRepository;
-    private final NursingRecordTimeValidator nursingRecordTimeValidator;
+    private final NursingRecordValidator nursingRecordValidator;
     private final IandORecordMapper iandORecordMapper;
     private final IandORecordHistoryRepository iandORecordHistoryRepository;
 
@@ -49,7 +49,8 @@ public class IandORecordServiceImpl implements IandORecordService, HistoryTracka
 
     @Override
     public IandORecordDTO createIandORecord(IandORecordDTO requestDto) {
-        nursingRecordTimeValidator.validate(requestDto.getAdmissionId(), requestDto.getRecordedAt());
+        nursingRecordValidator.validateWritable(requestDto.getAdmissionId());
+        nursingRecordValidator.validateRecordTime(requestDto.getAdmissionId(), requestDto.getRecordedAt());
         IandORecordEntity entity = iandORecordMapper.toEntity(requestDto);
         entity.setIntakeOutputId(UUID.randomUUID().toString());
         IandORecordDTO savedDto = iandORecordMapper.toDto(iandORecordRepository.save(entity));
@@ -75,9 +76,10 @@ public class IandORecordServiceImpl implements IandORecordService, HistoryTracka
     public IandORecordDTO updateIandORecord(String iandORecordId, IandORecordDTO requestDto) {
         return iandORecordRepository.findById(iandORecordId)
                 .map(entity -> {
+                    nursingRecordValidator.validateWritable(entity.getAdmissionId());
                     // 기록 시각을 보낸 경우만 검증 (비어 있으면 기존 값 유지)
                     if (requestDto.getRecordedAt() != null) {
-                        nursingRecordTimeValidator.validate(entity.getAdmissionId(), requestDto.getRecordedAt());
+                        nursingRecordValidator.validateRecordTime(entity.getAdmissionId(), requestDto.getRecordedAt());
                     }
                     iandORecordMapper.updateEntityFromDto(entity, requestDto);
                     return iandORecordMapper.toDto(iandORecordRepository.save(entity));
@@ -92,6 +94,7 @@ public class IandORecordServiceImpl implements IandORecordService, HistoryTracka
         // Implementation for deleting a specific I and O record
         IandORecordEntity entity = iandORecordRepository.findById(iandORecordId)
                 .orElseThrow(()->new RuntimeException("I and O record not found with ID: " + iandORecordId));
+        nursingRecordValidator.validateWritable(entity.getAdmissionId());
         iandORecordRepository.delete(entity);
     }
 
