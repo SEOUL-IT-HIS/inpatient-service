@@ -162,6 +162,10 @@ public class AdmissionServiceImpl implements AdmissionService {
         } else if (entity.getDischargedAt() == null) {
             entity.setDischargedAt(DateRules.now());
         }
+        // 퇴원신청 시각: 퇴원신청 전 상태(입원 대기/입원 중)로 되돌리면 비움
+        if (!"DISCHARGE_REQUESTED".equals(status) && !"DISCHARGED".equals(status)) {
+            entity.setDischargeRequestedAt(null);
+        }
         return admissionMapper.toDto(admissionRepository.save(entity));
     }
 
@@ -185,6 +189,10 @@ public class AdmissionServiceImpl implements AdmissionService {
         }
 
         entity.setStatus(status);
+        // 퇴원신청 시각 기록 — 입원료 청구 일수(buildRoomFeeEvent의 "오늘")와 같은 날짜
+        if ("DISCHARGE_REQUESTED".equals(status)) {
+            entity.setDischargeRequestedAt(DateRules.now());
+        }
         // 퇴원 확정 시각 기록 — 입퇴원 목록에서 "최근 7일 퇴원"을 거르는 기준
         if ("DISCHARGED".equals(status)) {
             entity.setDischargedAt(DateRules.now());
