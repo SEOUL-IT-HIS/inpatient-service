@@ -14,6 +14,7 @@ import kr.co.seoulit.his.inpatientservice.bed.repository.BedRepository;
 import kr.co.seoulit.his.inpatientservice.common.exception.BusinessException;
 
 import kr.co.seoulit.his.inpatientservice.common.exception.ErrorCode;
+import kr.co.seoulit.his.inpatientservice.common.util.DateRules;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
@@ -22,10 +23,14 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 
 @Service
 
 public class BedAssignmentServiceImpl implements BedAssignmentService {
+    // 격리 환자에게 허용하는 병실 유형 (admin ROOM_TYPE_CD): 01 1인실, 03 격리실, 04 특실
+    private static final Set<String> ISOLATION_ALLOWED_ROOM_TYPES = Set.of("01", "03", "04");
+
     // "배정(BedAssignment)" 테이블을 다루는 repository — BED_ASSIGNMENT 저장/조회 담당
     private final BedAssignmentRepository bedAssignmentRepository;
     // Entity(DB용 객체) <-> DTO(API 응답용 객체) 서로 변환해주는 도구
@@ -84,12 +89,16 @@ public class BedAssignmentServiceImpl implements BedAssignmentService {
     @Transactional
     @Override
     public BedAssignmentDTO createBedAssignment(BedAssignmentDTO requestDto) {
+        // -1) 배정일시는 오늘 이후만 허용 (화면 입력 제한과 별개로 API 직접 호출도 막음)
+        validateAssignedAt(requestDto.getAssignedAt());
         // 0) 이 입원 건이 이미 다른 병상에 활성 배정돼 있는지 확인 (한 입원 건은 병상 1개만 가져야 함)
         if (!bedAssignmentRepository.findByAdmissionIdAndReleasedAtIsNull(requestDto.getAdmissionId()).isEmpty()) {
             throw new BusinessException(ErrorCode.ADMISSION_ALREADY_HAS_BED);
         }
         // 1) 먼저 이 병상이 "배정 가능한 상태"인지 검증 (이미 다른 사람이 쓰고 있으면 예외 던지고 여기서 끝)
         validateBedAvailable(requestDto.getBedId());
+        // 1.5) 격리가 필요한 입원 건이면 1인실 · 격리실 · 특실만 허용 (다른 환자와 같은 방 사용 불가)
+        validateIsolationRoom(requestDto.getAdmissionId(), requestDto.getBedId());
         // 2) 요청받은 DTO를 DB에 저장할 Entity로 변환
         BedAssignmentEntity entity = bedAssignmentMapper.toEntity(requestDto);
         // 3) 배정 Entity를 DB에 저장 (BED_ASSIGNMENT 테이블에 INSERT)
@@ -147,6 +156,12 @@ public class BedAssignmentServiceImpl implements BedAssignmentService {
         if (bedChanged) {
             // 옮겨갈 새 병상이 실제로 배정 가능한 상태인지 검증
             validateBedAvailable(requestDto.getBedId());
+            validateIsolationRoom(entity.getAdmissionId(), requestDto.getBedId());
+        }
+
+        // 1.7) 퇴상 처리(releasedAt 있음)면 퇴상일시가 배정일시 이후 · 지금 이전인지 확인
+        if (requestDto.getReleasedAt() != null) {
+            validateReleasedAt(requestDto.getAssignedAt(), requestDto.getReleasedAt());
         }
 
         // 2) 요청받은 값으로 필드들을 덮어씀 (아직 DB에 반영 안 됨, 메모리 상의 객체만 수정)
@@ -190,11 +205,13 @@ public class BedAssignmentServiceImpl implements BedAssignmentService {
             markBedEmpty(entity.getBedId());
         }
     }
+    // @Transactional: 배정 퇴상 + 병상 EMPTY를 하나로 묶음 (퇴원 확정에서 호출되면 그 트랜잭션에 합류)
+    @Transactional
     @Override
     public void releaseBedByAdmissionId(String admissionId) {
         List<BedAssignmentEntity> assignments = bedAssignmentRepository.findByAdmissionIdAndReleasedAtIsNull(admissionId);
         for (BedAssignmentEntity assignment : assignments) {
-            assignment.setReleasedAt(LocalDateTime.now());
+            assignment.setReleasedAt(DateRules.now()); // 병원 시간대 기준 (서버가 UTC라 LocalDateTime.now()면 화면 입력값과 9시간 어긋남)
             bedAssignmentRepository.save(assignment);
             markBedEmpty(assignment.getBedId());
         }
@@ -209,6 +226,40 @@ public class BedAssignmentServiceImpl implements BedAssignmentService {
         BedEntity bed = bedRepository.findById(assignments.get(0).getBedId())
                 .orElseThrow(()->new BusinessException(ErrorCode.BED_NOT_FOUND));
         return bed.getRoomTypeCode();
+    }
+
+    // [검증 전용 private 메서드] 새 배정의 배정일시는 "오늘 00:00 ~ 지금"만 허용
+    // - 오늘 이전: 지난 날짜로 배정을 새로 만들 수 없음 (오늘 아침에 배정한 것을 지금 입력하는 경우는 허용)
+    // - 미래: 배정하는 순간 병상이 OCCUPIED가 되므로, 배정일만 미래인 모순을 막음
+    // - create에서만 씀 (update는 퇴상 처리 때 기존 과거 배정일시가 그대로 오므로 검증하면 안 됨)
+    private void validateAssignedAt(LocalDateTime assignedAt) {
+        if (assignedAt == null || assignedAt.toLocalDate().isBefore(DateRules.today()) || DateRules.isFuture(assignedAt)) {
+            throw new BusinessException(ErrorCode.BED_ASSIGNED_AT_INVALID);
+        }
+    }
+
+    // [검증 전용 private 메서드] 퇴상일시는 "배정일시 ~ 지금"만 허용 (퇴상이 배정보다 먼저이거나 미래일 수 없음)
+    private void validateReleasedAt(LocalDateTime assignedAt, LocalDateTime releasedAt) {
+        boolean beforeAssigned = assignedAt != null && releasedAt.isBefore(assignedAt);
+        if (beforeAssigned || DateRules.isFuture(releasedAt)) {
+            throw new BusinessException(ErrorCode.BED_RELEASED_AT_INVALID);
+        }
+    }
+
+    // [검증 전용 private 메서드] 격리가 필요한 입원 건(isolationYn = Y)은 다른 환자와 같은 방을 쓸 수 없으므로
+    // 1인실(01) · 격리실(03) · 특실(04) 병상만 허용 — 다인실(02)이면 거절
+    // (화면 안내 문구만으로는 다인실 배정을 막지 못해 실제로 격리 환자가 4인실에 배정된 적이 있음)
+    private void validateIsolationRoom(String admissionId, String bedId) {
+        AdmissionEntity admission = admissionRepository.findById(admissionId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.ADMISSION_NOT_FOUND));
+        if (!"Y".equals(admission.getIsolationYn())) {
+            return;
+        }
+        BedEntity bed = bedRepository.findById(bedId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.BED_NOT_FOUND));
+        if (!ISOLATION_ALLOWED_ROOM_TYPES.contains(bed.getRoomTypeCode())) {
+            throw new BusinessException(ErrorCode.ISOLATION_ROOM_REQUIRED);
+        }
     }
 
     // [검증 전용 private 메서드] "이 병상, 지금 새로 배정해도 되는 상태냐?"만 확인

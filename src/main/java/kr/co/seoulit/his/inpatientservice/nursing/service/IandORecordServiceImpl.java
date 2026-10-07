@@ -1,7 +1,9 @@
 package kr.co.seoulit.his.inpatientservice.nursing.service;
 
+import jakarta.transaction.Transactional;
 
 import kr.co.seoulit.his.inpatientservice.common.aop.HistoryTrackable;
+import kr.co.seoulit.his.inpatientservice.common.aop.TracksHistory;
 import kr.co.seoulit.his.inpatientservice.nursing.dto.IandORecordDTO;
 import kr.co.seoulit.his.inpatientservice.nursing.dto.IandORecordHistoryDTO;
 import kr.co.seoulit.his.inpatientservice.nursing.entity.IandORecordEntity;
@@ -19,6 +21,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class IandORecordServiceImpl implements IandORecordService, HistoryTrackable {
     private final IandORecordRepository iandORecordRepository;
+    private final NursingRecordValidator nursingRecordValidator;
     private final IandORecordMapper iandORecordMapper;
     private final IandORecordHistoryRepository iandORecordHistoryRepository;
 
@@ -46,6 +49,8 @@ public class IandORecordServiceImpl implements IandORecordService, HistoryTracka
 
     @Override
     public IandORecordDTO createIandORecord(IandORecordDTO requestDto) {
+        nursingRecordValidator.validateWritable(requestDto.getAdmissionId());
+        nursingRecordValidator.validateRecordTime(requestDto.getAdmissionId(), requestDto.getRecordedAt());
         IandORecordEntity entity = iandORecordMapper.toEntity(requestDto);
         entity.setIntakeOutputId(UUID.randomUUID().toString());
         IandORecordDTO savedDto = iandORecordMapper.toDto(iandORecordRepository.save(entity));
@@ -63,23 +68,33 @@ public class IandORecordServiceImpl implements IandORecordService, HistoryTracka
     }
 
 
+    // 변경이력은 HistoryTrackingAspect가 실행 직전에 저장 (어노테이션은 구현 메서드에 있어야 AOP가 적용됨)
+    // @Transactional: AOP가 남기는 이력과 실제 수정을 하나로 묶음 → 검증 실패 등으로 수정이 취소되면 이력도 남지 않음
+    @Transactional
+    @TracksHistory(changeType = "UPDATED")
     @Override
     public IandORecordDTO updateIandORecord(String iandORecordId, IandORecordDTO requestDto) {
         return iandORecordRepository.findById(iandORecordId)
                 .map(entity -> {
-                    iandORecordHistoryRepository.save(toHistorySnapshot(entity, "UPDATED"));
+                    nursingRecordValidator.validateWritable(entity.getAdmissionId());
+                    // 기록 시각을 보낸 경우만 검증 (비어 있으면 기존 값 유지)
+                    if (requestDto.getRecordedAt() != null) {
+                        nursingRecordValidator.validateRecordTime(entity.getAdmissionId(), requestDto.getRecordedAt());
+                    }
                     iandORecordMapper.updateEntityFromDto(entity, requestDto);
                     return iandORecordMapper.toDto(iandORecordRepository.save(entity));
 
                 })
                 .orElseThrow(() -> new RuntimeException("I and O record not found with ID: " + iandORecordId));
     }
+    @Transactional
+    @TracksHistory(changeType = "DELETED")
     @Override
     public void deleteIandORecord(String iandORecordId) {
         // Implementation for deleting a specific I and O record
         IandORecordEntity entity = iandORecordRepository.findById(iandORecordId)
                 .orElseThrow(()->new RuntimeException("I and O record not found with ID: " + iandORecordId));
-        iandORecordHistoryRepository.save(toHistorySnapshot(entity, "DELETED"));
+        nursingRecordValidator.validateWritable(entity.getAdmissionId());
         iandORecordRepository.delete(entity);
     }
 
