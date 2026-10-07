@@ -77,7 +77,7 @@ class NursingHistoryAopTest {
     void 수정하면_수정_직전_값으로_이력이_정확히_1건_남는다() {
         saveVitalSign("VS1", 36);
         VitalSignDTO dto = vitalSignService.getVitalSign("VS1");
-        dto.setTemperature(38);
+        dto.setTemperature(38.5); // 소수점 체온 — 예전에는 int 컬럼이라 38로 잘려 저장됐음
 
         vitalSignService.updateVitalSign("VS1", dto);
 
@@ -85,7 +85,7 @@ class NursingHistoryAopTest {
         assertThat(histories).hasSize(1);
         assertThat(histories.get(0).getChangeType()).isEqualTo("UPDATED");
         assertThat(histories.get(0).getTemperature()).isEqualTo(36);
-        assertThat(vitalSignRepository.findById("VS1").orElseThrow().getTemperature()).isEqualTo(38);
+        assertThat(vitalSignRepository.findById("VS1").orElseThrow().getTemperature()).isEqualTo(38.5);
     }
 
     @Test
