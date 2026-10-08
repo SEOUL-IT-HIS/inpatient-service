@@ -182,6 +182,22 @@ class NursingHistoryAopTest {
                 .admissionDate(DateRules.now().minusDays(3)).build());
     }
 
+    @Test
+    void 입원_건별로_조회하면_그_입원_건의_기록만_오고_값이_없으면_전체가_온다() {
+        saveVitalSign("VS-A1", 36); // ADM1
+        saveVitalSign("VS-A2", 37); // ADM1
+        vitalSignRepository.save(VitalSignEntity.builder().vitalSignId("VS-B1").admissionId("ADM2")
+                .measuredAt(DateRules.now().minusHours(1)).temperature(38).build());
+
+        assertThat(vitalSignService.getVitalSigns("ADM1")).extracting(VitalSignDTO::getVitalSignId)
+                .containsExactlyInAnyOrder("VS-A1", "VS-A2");
+        assertThat(vitalSignService.getVitalSigns("ADM2")).hasSize(1);
+        assertThat(vitalSignService.getVitalSigns("NONE")).isEmpty();
+        // 값이 없으면(단독 목록 페이지) 전체
+        assertThat(vitalSignService.getVitalSigns(null)).hasSize(3);
+        assertThat(vitalSignService.getVitalSigns(" ")).hasSize(3);
+    }
+
     private void saveVitalSign(String id, int temperature) {
         vitalSignRepository.save(VitalSignEntity.builder()
                 .vitalSignId(id)

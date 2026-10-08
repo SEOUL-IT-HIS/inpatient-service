@@ -6,7 +6,8 @@ import kr.co.seoulit.his.inpatientservice.nursing.dto.RestraintHistoryDTO;
 import java.util.List;
 
 public interface RestraintService {
-    List<RestraintDTO> getRestraints();
+    /** admissionId가 있으면 그 입원 건의 기록만, 없으면 전체 */
+    List<RestraintDTO> getRestraints(String admissionId);
 
     List<RestraintHistoryDTO> getRestraintHistory(String restraintId);
 

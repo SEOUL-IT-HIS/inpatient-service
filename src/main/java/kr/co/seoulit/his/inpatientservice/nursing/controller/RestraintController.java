@@ -25,8 +25,8 @@ public class RestraintController {
     }
 
     @GetMapping
-    public ApiResponse<List<RestraintDTO>> getRestraints() {
-        return ApiResponse.success(restraintService.getRestraints());
+    public ApiResponse<List<RestraintDTO>> getRestraints(@RequestParam(required = false) String admissionId) {
+        return ApiResponse.success(restraintService.getRestraints(admissionId));
     }
 
     @GetMapping("/{restraintId}")

@@ -24,8 +24,8 @@ public class NursingAssessmentController {
     }
 
     @GetMapping
-    public ApiResponse<List<NursingAssessmentDTO>> getNursingAssessments() {
-        return ApiResponse.success(nursingAssessmentService.getNursingAssessments());
+    public ApiResponse<List<NursingAssessmentDTO>> getNursingAssessments(@RequestParam(required = false) String admissionId) {
+        return ApiResponse.success(nursingAssessmentService.getNursingAssessments(admissionId));
     }
 
     @GetMapping("/{nursingAssessmentId}")

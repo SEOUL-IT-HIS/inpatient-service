@@ -31,8 +31,12 @@ public class VitalSignServiceImpl implements VitalSignService, HistoryTrackable 
         vitalSignHistoryRepository.save(toHistorySnapshot(entity, changeType));
     }
     @Override
-    public List<VitalSignDTO> getVitalSigns() {
-        return vitalSignRepository.findAll().stream()
+    public List<VitalSignDTO> getVitalSigns(String admissionId) {
+        // admissionId가 있으면 그 입원 건의 기록만 조회 — 전체를 받아 화면에서 거르지 않도록 (단독 목록 페이지는 값 없이 호출 → 전체)
+        List<VitalSignEntity> entities = (admissionId == null || admissionId.isBlank())
+                ? vitalSignRepository.findAll()
+                : vitalSignRepository.findByAdmissionId(admissionId);
+        return entities.stream()
                 .map(vitalSignMapper::toDto)
                 .toList();
     }

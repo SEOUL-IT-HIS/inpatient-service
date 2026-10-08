@@ -34,8 +34,12 @@ public class RiskAssessmentServiceImpl implements RiskAssessmentService, History
     }
 
     @Override
-    public List<RiskAssessmentDTO> getRiskAssessments() {
-        return riskAssessmentRepository.findAll().stream()
+    public List<RiskAssessmentDTO> getRiskAssessments(String admissionId) {
+        // admissionId가 있으면 그 입원 건의 기록만 조회 — 전체를 받아 화면에서 거르지 않도록 (단독 목록 페이지는 값 없이 호출 → 전체)
+        List<RiskAssessmentEntity> entities = (admissionId == null || admissionId.isBlank())
+                ? riskAssessmentRepository.findAll()
+                : riskAssessmentRepository.findByAdmissionId(admissionId);
+        return entities.stream()
                 .map(riskAssessmentMapper::toDto)
                 .toList();
     }

@@ -33,8 +33,12 @@ public class IandORecordServiceImpl implements IandORecordService, HistoryTracka
     }
 
     @Override
-    public List<IandORecordDTO> getIandORecords() {
-        return iandORecordRepository.findAll().stream()
+    public List<IandORecordDTO> getIandORecords(String admissionId) {
+        // admissionId가 있으면 그 입원 건의 기록만 조회 — 전체를 받아 화면에서 거르지 않도록 (단독 목록 페이지는 값 없이 호출 → 전체)
+        List<IandORecordEntity> entities = (admissionId == null || admissionId.isBlank())
+                ? iandORecordRepository.findAll()
+                : iandORecordRepository.findByAdmissionId(admissionId);
+        return entities.stream()
                 .map(iandORecordMapper::toDto)
                 .toList();
     }
