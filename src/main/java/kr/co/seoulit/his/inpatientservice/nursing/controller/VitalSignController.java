@@ -24,8 +24,8 @@ public class VitalSignController {
     }
 
     @GetMapping
-    public ApiResponse<List<VitalSignDTO>> getVitalSigns() {
-        return ApiResponse.success(vitalSignService.getVitalSigns());
+    public ApiResponse<List<VitalSignDTO>> getVitalSigns(@RequestParam(required = false) String admissionId) {
+        return ApiResponse.success(vitalSignService.getVitalSigns(admissionId));
     }
 
     @GetMapping("/{vitalSignId}")

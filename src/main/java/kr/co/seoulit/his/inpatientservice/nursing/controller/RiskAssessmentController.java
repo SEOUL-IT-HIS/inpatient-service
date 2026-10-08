@@ -23,8 +23,8 @@ public class RiskAssessmentController {
     }
 
     @GetMapping
-    public ApiResponse<List<RiskAssessmentDTO>> getRiskAssessments() {
-        return ApiResponse.success(riskAssessmentService.getRiskAssessments());
+    public ApiResponse<List<RiskAssessmentDTO>> getRiskAssessments(@RequestParam(required = false) String admissionId) {
+        return ApiResponse.success(riskAssessmentService.getRiskAssessments(admissionId));
     }
 
     @GetMapping("/{riskAssessmentId}")

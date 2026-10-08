@@ -6,7 +6,8 @@ import kr.co.seoulit.his.inpatientservice.nursing.dto.RiskAssessmentHistoryDTO;
 import java.util.List;
 
 public interface RiskAssessmentService {
-    List<RiskAssessmentDTO> getRiskAssessments();
+    /** admissionId가 있으면 그 입원 건의 기록만, 없으면 전체 */
+    List<RiskAssessmentDTO> getRiskAssessments(String admissionId);
 
     List<RiskAssessmentHistoryDTO> getRiskAssessmentHistory(String patientRiskAssessmentId);
 

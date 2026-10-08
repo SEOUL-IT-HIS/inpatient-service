@@ -8,7 +8,8 @@ import kr.co.seoulit.his.inpatientservice.nursing.dto.NursingAssessmentHistoryDT
 import java.util.List;
 
 public interface NursingAssessmentService {
-    List<NursingAssessmentDTO> getNursingAssessments();
+    /** admissionId가 있으면 그 입원 건의 기록만, 없으면 전체 */
+    List<NursingAssessmentDTO> getNursingAssessments(String admissionId);
 
     List<NursingAssessmentHistoryDTO> getNursingAssessmentHistory(String nursingAssessmentId);
 

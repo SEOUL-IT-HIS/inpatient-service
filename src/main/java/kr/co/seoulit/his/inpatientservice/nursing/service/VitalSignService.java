@@ -6,7 +6,8 @@ import kr.co.seoulit.his.inpatientservice.nursing.dto.VitalSignHistoryDTO;
 import java.util.List;
 
 public interface VitalSignService {
-    List<VitalSignDTO> getVitalSigns();
+    /** admissionId가 있으면 그 입원 건의 기록만, 없으면 전체 */
+    List<VitalSignDTO> getVitalSigns(String admissionId);
 
     List<VitalSignHistoryDTO> getVitalSignHistory(String vitalSignId);
 

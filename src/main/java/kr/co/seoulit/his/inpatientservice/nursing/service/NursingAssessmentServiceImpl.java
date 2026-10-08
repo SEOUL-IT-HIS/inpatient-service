@@ -31,8 +31,12 @@ public class NursingAssessmentServiceImpl implements NursingAssessmentService, H
         nursingAssessmentHistoryRepository.save(toHistorySnapshot(entity, changeType));
     }
     @Override
-    public List<NursingAssessmentDTO> getNursingAssessments() {
-        return nursingAssessmentRepository.findAll().stream()
+    public List<NursingAssessmentDTO> getNursingAssessments(String admissionId) {
+        // admissionId가 있으면 그 입원 건의 기록만 조회 — 전체를 받아 화면에서 거르지 않도록 (단독 목록 페이지는 값 없이 호출 → 전체)
+        List<NursingAssessmentEntity> entities = (admissionId == null || admissionId.isBlank())
+                ? nursingAssessmentRepository.findAll()
+                : nursingAssessmentRepository.findByAdmissionId(admissionId);
+        return entities.stream()
                 .map(nursingAssessmentMapper::toDto)
                 .toList();
     }

@@ -6,7 +6,8 @@ import kr.co.seoulit.his.inpatientservice.nursing.dto.IandORecordHistoryDTO;
 import java.util.List;
 
 public interface IandORecordService {
-    List<IandORecordDTO> getIandORecords();
+    /** admissionId가 있으면 그 입원 건의 기록만, 없으면 전체 */
+    List<IandORecordDTO> getIandORecords(String admissionId);
 
     List<IandORecordHistoryDTO> getIandORecordHistory(String intakeOutputId);
 

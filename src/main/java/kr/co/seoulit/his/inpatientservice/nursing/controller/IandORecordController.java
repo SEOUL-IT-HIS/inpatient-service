@@ -24,8 +24,8 @@ public class IandORecordController {
     }
 
     @GetMapping
-    public ApiResponse<List<IandORecordDTO>> getIandORecords() {
-        return ApiResponse.success(iandORecordService.getIandORecords());
+    public ApiResponse<List<IandORecordDTO>> getIandORecords(@RequestParam(required = false) String admissionId) {
+        return ApiResponse.success(iandORecordService.getIandORecords(admissionId));
     }
 
     @GetMapping("/{iandORecordId}")
