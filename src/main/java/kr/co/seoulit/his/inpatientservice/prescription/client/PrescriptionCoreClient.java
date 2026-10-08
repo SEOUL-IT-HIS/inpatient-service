@@ -6,6 +6,7 @@ import kr.co.seoulit.his.inpatientservice.prescription.dto.OutpatientApiResponse
 import kr.co.seoulit.his.inpatientservice.prescription.dto.PrescriptionCreateDTO;
 import kr.co.seoulit.his.inpatientservice.prescription.dto.PrescriptionDTO;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -23,6 +24,7 @@ import java.util.function.Supplier;
  * - 취소: PATCH /api/outpatient/prescriptions/{prescriptionId}/deactivate?cancelReason=...&userId=... (body 아님, 쿼리 파라미터)
  * 실패는 모두 call()에서 우리 BusinessException(400/502/503)으로 바꿔서 던짐
  */
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class PrescriptionCoreClient {
@@ -86,6 +88,8 @@ public class PrescriptionCoreClient {
             throw toBusinessException(e);
         } catch (ResourceAccessException e) {
             // 외래 서버에 아예 연결이 안 됨 (서버 꺼짐, 포트 틀림, 타임아웃 등)
+            // 화면에는 같은 메시지지만, 실제 원인(연결 거부/시간 초과/끊김/지원하지 않는 메서드 등)은 로그로 남김
+            log.warn("외래 처방코어 호출 실패: {}", e.getMessage(), e);
             throw new BusinessException(ErrorCode.OUTPATIENT_SERVICE_UNAVAILABLE);
         } catch (RestClientException e) {
             // 그 외 — 응답은 200인데 JSON 형식이 달라서 변환 실패 등
