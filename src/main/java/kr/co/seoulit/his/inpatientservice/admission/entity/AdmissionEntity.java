@@ -6,6 +6,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.*;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -42,6 +43,9 @@ public class AdmissionEntity {
     private String requestedBy;     // 입원을 요청한 응급 의사 ID (doctorId에도 우선 같은 값을 넣고, 주치의는 병동에서 정함)
     @Column(length = 500)
     private String note;            // 요청 메모 (진단명 대신)
+    // ---- 외래 입원요청(Kafka outpatient.admission.requested.v1)으로 들어온 건만 채워짐 ----
+    // 외래 건은 dispositionId가 null이고, admissionRequestId(= 외래 requestId) + admissionRoute("Outpatient")로 구분
+    private LocalDate preferredAdmitDate; // 입원 희망일 (선택) — 입원일(admissionDate)과는 별개, 병상 배정 때 참고
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

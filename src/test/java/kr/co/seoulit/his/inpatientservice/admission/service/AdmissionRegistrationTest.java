@@ -16,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.kafka.core.KafkaTemplate;
+import kr.co.seoulit.his.inpatientservice.admission.event.OpdAdmissionResultPublisher;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,6 +40,7 @@ class AdmissionRegistrationTest {
 
     @MockitoBean KafkaTemplate<String, Object> kafkaTemplate;
     @MockitoBean BedReservationService bedReservationService;
+    @MockitoBean OpdAdmissionResultPublisher opdAdmissionResultPublisher;
 
     @AfterEach
     void cleanUp() {

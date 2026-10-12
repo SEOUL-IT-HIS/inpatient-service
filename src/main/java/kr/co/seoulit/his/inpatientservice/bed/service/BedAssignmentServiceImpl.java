@@ -3,6 +3,8 @@ package kr.co.seoulit.his.inpatientservice.bed.service;
 import jakarta.transaction.Transactional;
 import kr.co.seoulit.his.inpatientservice.admission.entity.AdmissionEntity;
 import kr.co.seoulit.his.inpatientservice.admission.event.BedAssignedEvent;
+import kr.co.seoulit.his.inpatientservice.admission.event.OpdAdmissionRequestedEvent;
+import kr.co.seoulit.his.inpatientservice.admission.event.OpdAdmissionResultPublisher;
 import kr.co.seoulit.his.inpatientservice.admission.repository.AdmissionRepository;
 import kr.co.seoulit.his.inpatientservice.bed.entity.BedStatus;
 import kr.co.seoulit.his.inpatientservice.bed.dto.BedAssignmentDTO;
@@ -48,6 +50,8 @@ public class BedAssignmentServiceImpl implements BedAssignmentService {
     private final KafkaTemplate<String, Object> kafkaTemplate;
     private final String bedAssignedTopic;
     private final boolean kafkaEnabled;
+    // 외래에서 온 입원 건에 병상이 배정되면 외래로 병상 배정 회신을 보낼 때 씀
+    private final OpdAdmissionResultPublisher opdResultPublisher;
 
     // 생성자 — 스프링이 위 필드들을 자동으로 넣어줌(의존성 주입)
     public BedAssignmentServiceImpl(BedAssignmentRepository bedAssignmentRepository,
@@ -56,7 +60,8 @@ public class BedAssignmentServiceImpl implements BedAssignmentService {
             AdmissionRepository admissionRepository,
             KafkaTemplate<String, Object> kafkaTemplate,
             @Value("${inpatient.admission.bed-assigned.topic}") String bedAssignedTopic,
-            @Value("${app.kafka.enabled}") boolean kafkaEnabled) {
+            @Value("${app.kafka.enabled}") boolean kafkaEnabled,
+            OpdAdmissionResultPublisher opdResultPublisher) {
         this.bedAssignmentRepository = bedAssignmentRepository;
         this.bedAssignmentMapper = bedAssignmentMapper;
         this.bedRepository = bedRepository;
@@ -65,6 +70,7 @@ public class BedAssignmentServiceImpl implements BedAssignmentService {
         this.kafkaTemplate = kafkaTemplate;
         this.bedAssignedTopic = bedAssignedTopic;
         this.kafkaEnabled = kafkaEnabled;
+        this.opdResultPublisher = opdResultPublisher;
     }
 
     // [조회] 배정 전체 목록 가져오기 — 아무것도 바꾸지 않음, 그냥 읽기만
@@ -111,8 +117,24 @@ public class BedAssignmentServiceImpl implements BedAssignmentService {
         markBedOccupied(saved.getBedId(), admission.getPatientId());
         // 4.5) 응급에서 온 입원 건이면(dispositionId가 있으면) 응급에 "병상 배정됨" 회신
         publishBedAssignedIfEmergency(admission, saved.getBedId());
+        // 4.6) 외래에서 온 입원 건이면 외래에 "병상 배정됨" 회신 (외래 requestId = admissionRequestId)
+        publishBedAssignedIfOutpatient(admission, saved.getBedId());
         // 5) 저장된 결과를 DTO로 변환해서 반환
         return bedAssignmentMapper.toDto(saved);
+    }
+
+    // 외래 입원요청으로 들어온 입원 건(경로 Outpatient + admissionRequestId 있음)에 병상이 배정되면 외래로 회신
+    // - 응급 건(dispositionId 있음)·병동 직접 등록 건은 아무것도 안 함
+    // - 커밋 뒤 발행·kafka 꺼짐 처리는 OpdAdmissionResultPublisher 가 함
+    private void publishBedAssignedIfOutpatient(AdmissionEntity admission, String bedId) {
+        if (!OpdAdmissionRequestedEvent.ADMISSION_ROUTE.equals(admission.getAdmissionRoute())
+                || admission.getAdmissionRequestId() == null) {
+            return;
+        }
+        BedEntity bed = bedRepository.findById(bedId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.BED_NOT_FOUND));
+        opdResultPublisher.bedAssignedAfterCommit(admission.getAdmissionRequestId(), admission.getAdmissionId(),
+                bed.getWardCd());
     }
 
     // 응급 입원요청으로 들어온 입원 건에 병상이 배정되면 BED_ASSIGNED 이벤트를 응급으로 보냄
@@ -176,14 +198,15 @@ public class BedAssignmentServiceImpl implements BedAssignmentService {
         if (bedChanged) {
             AdmissionEntity admission = admissionRepository.findById(updated.getAdmissionId())
                     .orElseThrow(() -> new BusinessException(ErrorCode.ADMISSION_NOT_FOUND));
-            markBedEmpty(previousBedId);
+            // 이전 병상은 환자가 쓰던 병상이라 청소가 끝나기 전까지 점검중(MAINTENANCE)
+            markBedMaintenance(previousBedId);
             markBedOccupied(updated.getBedId(), admission.getPatientId());
         }
 
         // 4) 방금 저장한 releasedAt이 null이 아니면 = "이번에 퇴상 처리가 된 것"
-        // → 그 병상을 다시 EMPTY(빈 병상)로 되돌림
+        // → 그 병상을 점검중(MAINTENANCE)으로 바꿈. 청소가 끝나면 직원이 "청소 완료"(BedService.makeBedAvailable)로 EMPTY로 되돌림
         if (updated.getReleasedAt() != null) {
-            markBedEmpty(updated.getBedId());
+            markBedMaintenance(updated.getBedId());
         }
         // 5) 저장된 결과를 DTO로 변환해서 반환
         return bedAssignmentMapper.toDto(updated);
@@ -213,7 +236,7 @@ public class BedAssignmentServiceImpl implements BedAssignmentService {
         for (BedAssignmentEntity assignment : assignments) {
             assignment.setReleasedAt(DateRules.now()); // 병원 시간대 기준 (서버가 UTC라 LocalDateTime.now()면 화면 입력값과 9시간 어긋남)
             bedAssignmentRepository.save(assignment);
-            markBedEmpty(assignment.getBedId());
+            markBedMaintenance(assignment.getBedId());
         }
     }
 
@@ -294,9 +317,19 @@ public class BedAssignmentServiceImpl implements BedAssignmentService {
         bedRepository.save(entity); // DB에 실제로 반영(UPDATE)
     }
 
+    // [병상 상태 변경 전용 private 메서드] bedId로 병상을 찾아서 MAINTENANCE(점검중 = 청소 대기)로 바꾸고 patientId를 지움
+    // → 퇴상(update), 퇴원 확정 자동 퇴상(releaseBedByAdmissionId), 병상 이동 시 이전 병상에서 씀
+    // 점검중 병상은 배정·예약이 막히고, "청소 완료"를 눌러야 EMPTY로 돌아감
+    private void markBedMaintenance(String bedId) {
+        BedEntity entity = bedRepository.findById(bedId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.BED_NOT_FOUND));
+        entity.setBedStatus(BedStatus.MAINTENANCE);
+        entity.setPatientId(null);
+        bedRepository.save(entity);
+    }
+
     // [병상 상태 변경 전용 private 메서드] bedId로 병상을 찾아서 EMPTY로 바꾸고 patientId를 지움
-    // → update(퇴상 시)와 delete(활성 배정 삭제 시), 두 군데에서 씀
-    // ("배정이 끝났다/없어졌다" = "병상이 다시 비었다"라는 같은 의미라서 재사용)
+    // → delete(활성 배정을 지울 때)에서 씀 — 병상을 실제로 쓴 적이 없으니 청소 없이 바로 빈 병상으로 돌림
     private void markBedEmpty(String bedId) {
         BedEntity entity = bedRepository.findById(bedId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BED_NOT_FOUND));

@@ -1,5 +1,6 @@
 package kr.co.seoulit.his.inpatientservice.bed.service;
 
+import kr.co.seoulit.his.inpatientservice.admission.event.OpdAdmissionResultPublisher;
 import kr.co.seoulit.his.inpatientservice.admission.repository.AdmissionRepository;
 import kr.co.seoulit.his.inpatientservice.bed.dto.BedAssignmentDTO;
 import kr.co.seoulit.his.inpatientservice.bed.entity.BedAssignmentEntity;
@@ -33,7 +34,8 @@ class BedAssignmentAssignedAtTest {
     private final BedAssignmentServiceImpl service = new BedAssignmentServiceImpl(
             bedAssignmentRepository, mock(BedAssignmentMapper.class), bedRepository,
             mock(BedReservationService.class), mock(AdmissionRepository.class),
-            mock(KafkaTemplate.class), "inpatient.admission.bed-assigned.v1", false);
+            mock(KafkaTemplate.class), "inpatient.admission.bed-assigned.v1", false,
+            mock(OpdAdmissionResultPublisher.class));
 
     private static final LocalDate TODAY = DateRules.today();
 

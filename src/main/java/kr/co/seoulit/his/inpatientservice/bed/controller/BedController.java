@@ -31,6 +31,12 @@ public class BedController {
         return ApiResponse.success(bedService.updateRoomType(bedId, request.roomTypeCode()));
     }
 
+    // 청소 완료 — 점검중(MAINTENANCE) 병상을 빈 병상(EMPTY)으로 되돌림
+    @PatchMapping("/{bedId}/ready")
+    public ApiResponse<BedDTO> makeBedAvailable(@PathVariable String bedId) {
+        return ApiResponse.success(bedService.makeBedAvailable(bedId));
+    }
+
     @PatchMapping("/{bedId}/ward")
     public ApiResponse<BedDTO> updateWard(@PathVariable String bedId, @RequestBody BedDTO.WardUpdateRequest request) {
         return ApiResponse.success(bedService.updateWard(bedId, request.wardCd()));

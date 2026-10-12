@@ -28,6 +28,18 @@ public class KafkaTopicConfig {
         return TopicBuilder.name(name).partitions(1).replicas(1).build();
     }
 
+    // ---- 외래 입원요청 연동 (병동 ↔ 외래, key = requestId) ----
+    // requested: 외래 → 병동 (구독) / result: 병동 → 외래 (발행) — 취소·수정은 이번 연동 범위에서 제외 (외래와 합의)
+    @Bean
+    public NewTopic opdAdmissionRequestedTopic(@Value("${outpatient.admission.requested.topic:opd.admission.requested.v1}") String name) {
+        return TopicBuilder.name(name).partitions(1).replicas(1).build();
+    }
+
+    @Bean
+    public NewTopic opdAdmissionResultTopic(@Value("${inpatient.opd-admission.result.topic:inpatient.opd-admission.result.v1}") String name) {
+        return TopicBuilder.name(name).partitions(1).replicas(1).build();
+    }
+
     @Bean
     public NewTopic admissionRejectedTopic(@Value("${inpatient.admission.rejected.topic}") String name) {
         return TopicBuilder.name(name).partitions(1).replicas(1).build();
