@@ -14,4 +14,7 @@ public interface BedService {
     BedDTO updateRoomType(String bedId, String roomTypeCode);
 
     BedDTO updateWard(String bedId, String wardCd);
+
+    // 청소 완료 — 점검중(MAINTENANCE) 병상만 EMPTY로 되돌림
+    BedDTO makeBedAvailable(String bedId);
 }

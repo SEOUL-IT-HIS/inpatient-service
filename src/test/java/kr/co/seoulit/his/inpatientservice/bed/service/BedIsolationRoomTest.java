@@ -1,6 +1,7 @@
 package kr.co.seoulit.his.inpatientservice.bed.service;
 
 import kr.co.seoulit.his.inpatientservice.admission.entity.AdmissionEntity;
+import kr.co.seoulit.his.inpatientservice.admission.event.OpdAdmissionResultPublisher;
 import kr.co.seoulit.his.inpatientservice.admission.repository.AdmissionRepository;
 import kr.co.seoulit.his.inpatientservice.bed.dto.BedAssignmentDTO;
 import kr.co.seoulit.his.inpatientservice.bed.entity.BedEntity;
@@ -39,6 +40,7 @@ class BedIsolationRoomTest {
 
     @MockitoBean KafkaTemplate<String, Object> kafkaTemplate;
     @MockitoBean BedReservationService bedReservationService;
+    @MockitoBean OpdAdmissionResultPublisher opdAdmissionResultPublisher;
 
     @AfterEach
     void cleanUp() {
@@ -102,7 +104,7 @@ class BedIsolationRoomTest {
         BedAssignmentDTO toPrivate = request("ADM-ISO", "BED-PRIVATE2");
         toPrivate.setAssignedAt(assigned.getAssignedAt());
         bedAssignmentService.updateBedAssignment(assigned.getAssignmentId(), toPrivate);
-        assertThat(bedRepository.findById("BED-PRIVATE").orElseThrow().getBedStatus()).isEqualTo(BedStatus.EMPTY);
+        assertThat(bedRepository.findById("BED-PRIVATE").orElseThrow().getBedStatus()).isEqualTo(BedStatus.MAINTENANCE); // 옮기기 전 병상은 청소 전까지 점검중
         assertThat(bedRepository.findById("BED-PRIVATE2").orElseThrow().getBedStatus()).isEqualTo(BedStatus.OCCUPIED);
     }
 

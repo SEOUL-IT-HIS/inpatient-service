@@ -2,6 +2,7 @@ package kr.co.seoulit.his.inpatientservice.admission.dto;
 
 import lombok.*;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Getter
@@ -30,6 +31,8 @@ public class AdmissionDTO {
     private String isolationYn;
     private String requestedBy;
     private String note;
+    // 외래 입원요청으로 들어온 건만 채워짐
+    private LocalDate preferredAdmitDate;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

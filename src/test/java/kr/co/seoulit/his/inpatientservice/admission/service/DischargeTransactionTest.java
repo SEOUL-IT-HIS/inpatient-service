@@ -20,6 +20,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.kafka.core.KafkaTemplate;
+import kr.co.seoulit.his.inpatientservice.admission.event.OpdAdmissionResultPublisher;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -52,6 +53,7 @@ class DischargeTransactionTest {
 
     @MockitoBean KafkaTemplate<String, Object> kafkaTemplate;
     @MockitoBean BedReservationService bedReservationService;
+    @MockitoBean OpdAdmissionResultPublisher opdAdmissionResultPublisher;
 
     @AfterEach
     void cleanUp() {
@@ -71,7 +73,7 @@ class DischargeTransactionTest {
         assertThat(admissionRepository.findById("ADM001").orElseThrow().getStatus()).isEqualTo("DISCHARGED");
         assertThat(admissionRepository.findById("ADM001").orElseThrow().getDischargedAt()).isNotNull(); // 퇴원 확정 시각 기록
         assertThat(bedAssignmentRepository.findById(assignmentId).orElseThrow().getReleasedAt()).isNotNull();
-        assertThat(bedRepository.findById("BED001").orElseThrow().getBedStatus()).isEqualTo(BedStatus.EMPTY);
+        assertThat(bedRepository.findById("BED001").orElseThrow().getBedStatus()).isEqualTo(BedStatus.MAINTENANCE); // 퇴상한 병상은 청소 전까지 점검중
     }
 
     @Test

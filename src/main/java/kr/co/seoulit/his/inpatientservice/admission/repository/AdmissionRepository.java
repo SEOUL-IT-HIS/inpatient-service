@@ -26,4 +26,7 @@ public interface AdmissionRepository extends JpaRepository<AdmissionEntity, Stri
 
     // 응급 입원요청 중복 수신 확인 — 같은 dispositionId로 이미 만든 입원 건이 있으면 무시
     boolean existsByDispositionId(String dispositionId);
+
+    // 외래 입원요청 중복 수신 확인 — 외래 requestId는 admissionRequestId에 저장하고 경로(Outpatient)로 응급 건과 구분
+    boolean existsByAdmissionRequestIdAndAdmissionRoute(String admissionRequestId, String admissionRoute);
 }
