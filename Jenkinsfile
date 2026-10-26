@@ -16,7 +16,7 @@ def CFG = [
     repo      : 'https://github.com/SEOUL-IT-HIS/inpatient-service.git',           // 서비스 소스 저장소
     branch    : 'Release',                                                  // 18090 에 올릴 브랜치
     dockerhub : 'youngeiya',                                                     // 본인 Docker Hub 아이디
-    agent     : 'remote-linux-node',                                                    // 본인 Jenkins 에 만든 원격 노드의 Label
+    agent     : 'remote-linux-agent',                                                    // 본인 Jenkins 에 만든 원격 노드의 Label
     owner     : 'youngeiya',                                                     // 배포 기록(rollout history)에 남길 이름
 ]
 // =====================================================================
